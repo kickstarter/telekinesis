@@ -1,0 +1,5 @@
+*.swp
+lib/telekinesis/*.jar
+tmp/
+Gemfile.lock
+telekinesis-*.gem
