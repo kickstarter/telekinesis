@@ -7,6 +7,12 @@ java_import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClien
 module Telekinesis
   module Config
     class << self
+      def producer_config(config_hash = {})
+        check_key(config_hash, :stream, "Missing stream")
+        is_async = config_hash[:async] || !config_hash.include?(:async)
+        [config_hash[:stream], is_async, build_creds_provider(config_hash[:creds] || {})]
+      end
+
       # Build a Kinesis consumer configuration from a hash. The following
       # config parameters are required and used to identify the configured
       # client.
@@ -63,10 +69,9 @@ module Telekinesis
       protected
 
       def constructor_args(config_hash)
-        check_key(config_hash, consumer_creds_key, "No #{consumer_creds_key} specified")
-        provider = build_creds_provider(config_hash[consumer_creds_key])
+        provider = build_creds_provider(config_hash[:creds] || {})
 
-        app, stream, worker_id = consumer_required_keys.map do |k|
+        app, stream, worker_id = [:app, :stream, :worker_id].map do |k|
           check_key(config_hash, k, "#{k} is required")
           config_hash[k]
         end
@@ -84,14 +89,6 @@ module Telekinesis
         else
           raise ArgumentError, "Invalid credentials type #{config_hash[:type]}"
         end
-      end
-
-      def consumer_required_keys
-        [:app, :stream, :worker_id]
-      end
-
-      def consumer_creds_key
-        :creds
       end
 
       def check_key(hash, key, message)
