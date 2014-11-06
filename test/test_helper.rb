@@ -1,5 +1,6 @@
 require "minitest/autorun"
 require "bundler/setup"
 
-Bundler.require(:default, :test)
+Bundler.require(:development)
+
 require "telekinesis"

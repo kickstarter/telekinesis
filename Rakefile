@@ -1,3 +1,4 @@
+require 'bundler/setup'
 require_relative 'lib/telekinesis/version'
 
 VERSION = Telekinesis::VERSION
@@ -55,6 +56,10 @@ task :build_ext => [:have_jdk6_or_higher?, :have_maven?] do
       FileUtils.copy("target/#{fat_jar}", "../lib/telekinesis/#{fat_jar}")
     end
   end
+end
+
+task :build_gem => :build_ext do
+  `gem build telekinesis.gemspec`
 end
 
 # TODO:
