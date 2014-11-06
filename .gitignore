@@ -1,4 +1,4 @@
 *.swp
 lib/telekinesis/*.jar
 tmp/
-
+Gemfile.lock
