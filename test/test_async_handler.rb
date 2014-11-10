@@ -99,8 +99,14 @@ class AsyncHanlderTest < Minitest::Test
       }
 
       # While the drain is going, check that no new items can be added.
+      # NOTE: The loop is neccessary to prevent non-deterministc test failures.
+      #       If the check for shutdown isn't done it's possible for the assert
+      #       on @handler.handle to execute before the @handler.drain call is
+      #       made.
       drain_thread_started.await
-      assert(drain_finished.count > 0)
+      loop do
+        break if @handler.instance_variable_get(:@shutdown).get
+      end
       assert(!@handler.handle("u can't handle me"))
       assert(drain_finished.count > 0)
 
