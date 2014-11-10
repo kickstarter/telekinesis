@@ -248,14 +248,25 @@ end
 
 TODO: Configuring a Worker.
 
-# Installing
-
-tktktktktk
-
 # Building
 
-tktktktktkt
+`rake build:ext` builds the Java shim and packages all of the required Java
+classes into a single jar. Since bytecode is portable, the JAR is shipped with
+the built gem.
+
+`rake build:gem` builds the complete gem, uberjar and all.
+
+# Installing
+
+`gem install telekinesis-*.gem`
 
 # Testing
 
-tktktktktkt
+Telekinesis comes with a small set of unit tests. Run those with plain ol'
+`rake test`.
+
+**NOTE:** The java extension *must* be built and installed before you can run
+unit tests.
+
+Integration tests coming soon.
+
