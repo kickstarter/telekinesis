@@ -250,6 +250,15 @@ TODO: Configuring a Worker.
 
 # Building
 
+Before building you need Java, Maven and JRuby installed.
+
+Install Java through the [Oracle website](http://www.oracle.com/technetwork/java/javase/downloads/index.html).
+
+To install the proper version of JRuby, use `rbenv install`.
+
+Maven is available through Homebrew, via `brew install maven`. It's also
+available at [`maven.apache.org`](http://maven.apache.org/).
+
 `rake build:ext` builds the Java shim and packages all of the required Java
 classes into a single jar. Since bytecode is portable, the JAR is shipped with
 the built gem.
