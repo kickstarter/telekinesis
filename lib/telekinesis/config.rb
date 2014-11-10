@@ -10,7 +10,7 @@ module Telekinesis
       def producer_config(config_hash = {})
         check_key(config_hash, :stream, "Missing stream")
         is_async = config_hash[:async] || !config_hash.include?(:async)
-        [config_hash[:stream], is_async, build_creds_provider(config_hash[:creds] || {})]
+        [config_hash[:stream], is_async, credentials_provider(config_hash[:creds] || {})]
       end
 
       # Build a Kinesis consumer configuration from a hash. The following
@@ -66,20 +66,7 @@ module Telekinesis
         config
       end
 
-      protected
-
-      def constructor_args(config_hash)
-        provider = build_creds_provider(config_hash[:creds] || {})
-
-        app, stream, worker_id = [:app, :stream, :worker_id].map do |k|
-          check_key(config_hash, k, "#{k} is required")
-          config_hash[k]
-        end
-
-        [app, stream, provider, worker_id]
-      end
-
-      def build_creds_provider(config_hash)
+      def credentials_provider(config_hash)
         case config_hash[:type]
         when "default"
           DefaultAWSCredentialsProviderChain.new
@@ -89,6 +76,19 @@ module Telekinesis
         else
           raise ArgumentError, "Invalid credentials type #{config_hash[:type]}"
         end
+      end
+
+      protected
+
+      def constructor_args(config_hash)
+        provider = credentials_provider(config_hash[:creds] || {})
+
+        app, stream, worker_id = [:app, :stream, :worker_id].map do |k|
+          check_key(config_hash, k, "#{k} is required")
+          config_hash[k]
+        end
+
+        [app, stream, provider, worker_id]
       end
 
       def check_key(hash, key, message)
