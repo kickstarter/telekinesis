@@ -98,9 +98,19 @@ module Telekinesis
       begin
         loop do
           next_record = @queue.poll(@poll_timeout, TimeUnit::MILLISECONDS)
+
+          # NOTE: The serializer is responsible for handling any exceptions
+          #       raised while dealing with input. Anything that escapes is
+          #       assumed to be unhandleable, so the record should just be
+          #       dropped.
           result = nil
           if not next_record.nil?
-            result = @serializer.write(next_record)
+            begin
+              result = @serializer.write(next_record)
+            rescue => e
+              Telekinesis.logger.error("Error serializing record: #{e}")
+              next
+            end
           end
 
           # NOTE: The value of flush_next can change while the call to result.nil?
@@ -120,13 +130,12 @@ module Telekinesis
           break if @shutdown.get
         end
       rescue => e
-        $stderr.puts e
-        raise e
+        Telekinesis.logger.error("Async producer thread died: #{e}")
       end
     end
 
     def put_data(data)
-      @client.put_record(Producer.build_request(@stream, data))
+      Producer.put_data(@client, @stream, data)
     end
   end
 end

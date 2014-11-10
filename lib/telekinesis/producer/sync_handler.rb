@@ -26,7 +26,7 @@ module Telekinesis
     protected
 
     def put_data(data)
-      client.put_record(Producer.build_request(stream, data))
+      Producer.put_data(@client, stream, data)
     end
   end
 end

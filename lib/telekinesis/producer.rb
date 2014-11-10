@@ -24,6 +24,25 @@ module Telekinesis
       request
     end
 
+    def self.put_data(client, stream, data, retries = 5)
+      request = build_request(stream, data)
+      tries = retries
+      begin
+        client.put_record(request)
+      rescue => e
+        # NOTE: AWS errors are often transient. Just back off and sleep, debug
+        #       log it.
+        Telekinesis.logger.debug("Error sending data to Kinesis (#{tries} retries remaining): #{e}")
+        if (tries -= 1) > 0
+          sleep @retry_interval
+          retry
+        end
+        Telekinesis.logger.error("Request to Kinesis failed after #{retries} retries " +
+                                 "(stream=#{request.stream_name} partition_key=#{request.partition_key}).")
+        raise
+      end
+    end
+
     attr_reader :handler
 
     def initialize(handler)
