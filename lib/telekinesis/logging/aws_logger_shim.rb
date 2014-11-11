@@ -23,9 +23,12 @@ class AwsLoggerShim < Handler
   end
 
   def publish(log_record)
+    message = log_record.thrown.nil?  ?
+              log_record.message :
+              "#{log_record.message}: #{log_record.thrown}"
     Telekinesis.aws_logger.add(SEVERITY[log_record.level],
-                               log_record.logger_name,
-                               log_record.message)
+                               message,
+                               log_record.logger_name)
   end
 end
 
