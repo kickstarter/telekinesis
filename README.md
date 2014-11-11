@@ -1,4 +1,4 @@
-## What is this?
+# Telekinesis
 
 Telekinesis is a high-level JRuby client for Amazon Kinesis that wraps the [AWS
 Java SDK](http://aws.amazon.com/sdk-for-java/) and the [Kinesis Client
@@ -14,6 +14,12 @@ TKTKTKTK
 * JRuby 1.7.16
 
 If you want to build from source, you need to have Apache Maven installed.
+
+## Installing
+
+```
+$ gem install telekinesis-*.gem
+```
 
 ## Credentials
 
@@ -250,15 +256,72 @@ TODO: Configuring a Worker.
 
 # Building
 
-`rake build:ext` builds the Java shim and packages all of the required Java
+## Prerequisites
+
+* JRuby 1.7.9 or later.
+* Apache Maven
+
+## Build
+
+1. Install JRuby 1.7.9 or later, for example with `rbenv` you would:
+
+```
+$ rbenv install jruby-1.7.9
+```
+
+2. Install Bundler and required Gems.
+
+```
+$ gem install bundler
+$ bundle install
+```
+
+3. Install Apache Maven.
+
+On Ubuntu or related use:
+
+```
+$ sudo apt-get install maven
+```
+
+The easiest method on OSX is via `brew`.
+
+```
+$ sudo brew install maven
+```
+
+4. Ensure `JAVA_HOME` is set on OSX.
+
+Ensure your `JAVA_HOME` environment variable is set. In Bash for example
+add the following to `~/.bash_profile`.
+
+```
+export JAVA_HOME=$(/usr/libexec/java_home)
+```
+
+Then run:
+
+```
+$ source ~/.bash_profile
+```
+
+5. Build the Java shim and jar.
+
+```
+$ rake build:ext
+```
+
+The `rake build:ext` task builds the Java shim and packages all of the required Java
 classes into a single jar. Since bytecode is portable, the JAR is shipped with
 the built gem.
 
-`rake build:gem` builds the complete gem, uberjar and all.
+6. Build the Gem.
 
-# Installing
+Use the `rake build:gem` task to build the complete gem, uberjar and all.
 
-`gem install telekinesis-*.gem`
+```
+$ rake build:gem
+```
 
 # Testing
 
