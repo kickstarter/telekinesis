@@ -43,7 +43,7 @@ The following example creates a Producer with the default batch serializer (see
 below), sends every line in `ARGF` to Kinesis, and then shuts down cleanly.
 
 ```ruby
-producer = Telekinesis.producer(stream: "an-stream", creds: DefaultAWSCredentialsProviderChain.new)
+producer = Telekinesis.producer(stream: "an-stream", creds: {type: "default"})
 
 ARGF.each_line do |line|
   producer.put(line.chomp)
@@ -164,10 +164,14 @@ worker = Kinesis.process_records(build_config) do |records, checkpointer|
   checkpointer.checkpoint
 end
 
-worker.run
-loop do
-  puts my_queue.take.sequence_number
+Thread.new do
+  loop do
+    puts my_queue.take.sequence_number
+  end
 end
+
+# NOTE: worker.run blocks
+worker.run
 ```
 
 *NOTE:* The block passed to `process_records` is being passed to and called from
@@ -240,10 +244,14 @@ worker = Kineis.consumer(stream: "a-stream", ...) do
   MyWorker.new(my_queue)
 end
 
-loop do
-  shard, record = my_queue.take
-  puts "#{shard}\t#{record.sequence_number}"
+Thread.new do
+  loop do
+    shard, record = my_queue.take
+    puts "#{shard}\t#{record.sequence_number}"
+  end
 end
+
+worker.run
 ```
 
 TODO: Configuring a Worker.
