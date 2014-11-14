@@ -49,7 +49,8 @@ ARGF.each_line do |line|
   producer.put(line.chomp)
 end
 
-producer.drain
+# Blocking shutdown (see below for details)
+producer.shutdown(true, 5)
 ```
 
 Producers have three methods:
@@ -62,11 +63,17 @@ Producers have three methods:
 - The **`flush`** method forces any data buffered in the producer to be sent to
   Kinesis immediately.
 
-- The **`drain`** method flushes any buffered data to Kinesis, initiates an
-  orderly shutdown and waits for it to complete. During a `drain`, any `put`s
-  to the Producer will be rejected. Returns the queue at the end of the drain
-  process.  If there is any data left on the queue, it's the caller's
-  responsibility to handle that data.
+- The **`shutdown(block = false, duration = nil, unit = nil)`** method stops
+  the producer from accepting any more data, sends any queued data to Kinesis,
+  and stops any background tasks it may be managing. Shutdown can optionally
+  block for a given period of time, in which case it returns the same value as
+  `await`.
+
+- The **`await(duration = 10, unit = TimeUnit::SECONDS)`** method waits for the
+  producer to shut down cleanly. Returns `false` if the worker timed out
+  without shutting down cleanly and `true` otherwise. `duration` must be an
+  integer and `unit` must be a `TimeUnit` value from `java.util.concurrent`. By
+  default, `unit` is `SECONDS`.
 
 ### Batch Serializers
 

@@ -6,11 +6,15 @@ module Telekinesis
       @stream = stream
       @client = client
       @serializer = serializer
+      @shutdown = false
     end
 
     def handle(record)
+      return false if shutdown
+
       result = serializer.write(record)
       put_data(result) if result
+      true
     end
 
     def flush
@@ -18,9 +22,14 @@ module Telekinesis
       put_data(result) if result
     end
 
-    def drain(*args)
-      flush
-      []
+    def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
+      # Options are ignored
+      @shutdown = true
+    end
+
+    def await(duration = 10, unit = TimeUnit::SECONDS)
+      # Options are ignored
+      true
     end
 
     protected

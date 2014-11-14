@@ -35,7 +35,7 @@ class AsyncHanlderTest < Minitest::Test
       #       great, but it's better than hard coding them.
       handler_opts = {:poll_timeout => @poll_timeout, :worker_count => @worker_count}
       @handler = Telekinesis::AsyncHandler.new('test-stream', @client, handler_opts) do
-        Telekinesis::GZIPDelimitedSerializer.new(100, "\n")
+        Telekinesis::DelimitedSerializer.new(100, "\n")
       end
     end
 
@@ -63,58 +63,50 @@ class AsyncHanlderTest < Minitest::Test
 
     should "batch data to the client" do
       @client.start
-      # NOTE: With a 100 byte buffer, the gzip serializer flushes on the 10th
-      #       write, generating records that contain "banana\n" * 9.
-      #       18 writes should generate at least 1 request
-      19.times do
+      # NOTE: With a 100 byte buffer, the serializer flushes on the 15th
+      #       write, generating records that contain "banana\n" * 14. With two
+      #       workers, have to put at least 30 records to get one to flush.
+      30.times do
         @handler.handle("banana")
       end
 
       request = @client.get_next_request(@poll_timeout * 2, TimeUnit::MILLISECONDS)
       assert_equal('test-stream', request.stream_name)
-      assert_equal("banana\n" * 9,
-                   GZIPInputStream.new(ByteArrayInputStream.new(request.data.array)).to_io.read)
+      assert_equal("banana\n" * 14, ByteArrayInputStream.new(request.data.array).to_io.read)
 
       @handler.flush
-      request = @client.get_next_request(@poll_timeout * 2, TimeUnit::MILLISECONDS)
-      assert_equal('test-stream', request.stream_name)
-      assert_match(/^(banana\n)$/,
-                   GZIPInputStream.new(ByteArrayInputStream.new(request.data.array)).to_io.read)
+
+      bananas = []
+      loop do
+        request = @client.get_next_request(@poll_timeout * 2, TimeUnit::MILLISECONDS)
+        break unless request
+        assert_equal('test-stream', request.stream_name)
+        payload = ByteArrayInputStream.new(request.data.array).to_io.read
+        assert_match(/^(banana\n)$/, payload)
+        bananas += payload.split(/\n/)
+      end
+      assert_equal(30 - 14, bananas.size)
     end
 
-    should "drain all events in the queue" do
+    should "process all events in the queue before shutting down" do
       # NOTE: Don't start the fake client yet! All workers are now blocked on
       #       trying to submit 'whatever_nerd' to the client.
       @worker_count.times { @handler.handle("whatever_nerd") }
       @results = ArrayBlockingQueue.new(1000)
 
-      # Drain in a background thread. Use a latch to signal to the test thread
-      # that the drain is done, and send the results back using another queue.
-      drain_thread_started = CountDownLatch.new(1)
-      drain_finished = CountDownLatch.new(1)
-      Thread.new {
-        drain_thread_started.count_down
-        @results.add_all(@handler.drain(5, 1, TimeUnit::SECONDS))
-        drain_finished.count_down
-      }
-
-      # While the drain is going, check that no new items can be added.
-      # NOTE: The loop is neccessary to prevent non-deterministc test failures.
-      #       If the check for shutdown isn't done it's possible for the assert
-      #       on @handler.handle to execute before the @handler.drain call is
-      #       made.
-      drain_thread_started.await
-      loop do
-        break if @handler.instance_variable_get(:@shutdown)
-      end
+      @handler.shutdown(false) # don't block
       assert(!@handler.handle("u can't handle me"))
-      assert(drain_finished.count > 0)
 
-      # Unblock workers so the drain can finish, make sure there's nothing in
-      # the queue.
       @client.start
-      drain_finished.await
-      assert_nil(@results.poll)
+      assert(@handler.await(2, TimeUnit::SECONDS))
+
+      nerds = []
+      loop do
+        request = @client.get_next_request(1, TimeUnit::MILLISECONDS)
+        break unless request
+        nerds += ByteArrayInputStream.new(request.data.array).to_io.read.split(/\n/)
+      end
+      assert_equal(nerds.size, @worker_count)
     end
 
     teardown do

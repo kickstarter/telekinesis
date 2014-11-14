@@ -61,8 +61,12 @@ module Telekinesis
       handler.flush
     end
 
-    def drain(duration = 60, interval = 1, unit = TimeUnit::SECONDS)
-      handler.drain(duration, interval, unit)
+    def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
+      handler.shutdown(block, duration, unit)
+    end
+
+    def await(duration = 10, unit = TimeUnit::SECONDS)
+      handler.await(duration, unit)
     end
 
     protected
