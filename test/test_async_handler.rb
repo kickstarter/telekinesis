@@ -105,7 +105,7 @@ class AsyncHanlderTest < Minitest::Test
       #       made.
       drain_thread_started.await
       loop do
-        break if @handler.instance_variable_get(:@shutdown).get
+        break if @handler.instance_variable_get(:@shutdown)
       end
       assert(!@handler.handle("u can't handle me"))
       assert(drain_finished.count > 0)

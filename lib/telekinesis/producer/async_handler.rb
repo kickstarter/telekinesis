@@ -14,7 +14,7 @@ module Telekinesis
 
       @stream = stream
       @client = client
-      @shutdown = AtomicBoolean.new(false)
+      @shutdown = false
       @queue = ArrayBlockingQueue.new(options[:queue_size] || 1000)
 
       # Create workers outside of pool.submit so that the handler can keep
@@ -31,7 +31,7 @@ module Telekinesis
     end
 
     def handle(record)
-      if @shutdown.get
+      if @shutdown
         false
       else
         @queue.put(record)
@@ -46,7 +46,7 @@ module Telekinesis
     def shutdown
       # NOTE: Not necessary to interrupt workers. They check in again every
       #       @poll_timeout millis
-      @shutdown.set(true)
+      @shutdown = true
       @workers.map(&:shutdown)
       @worker_pool.shutdown
     end
@@ -57,7 +57,7 @@ module Telekinesis
 
     def drain(duration, interval, unit)
       # Stop accepting new work, don't shut down workers.
-      @shutdown.set(true)
+      @shutdown = true
       # Sleep up to duration, checking in every interval
       (duration / interval).to_i.times do
         break if @queue.size == 0
@@ -82,16 +82,18 @@ module Telekinesis
       @poll_timeout = poll_timeout
       @serializer = serializer
 
-      @shutdown = AtomicBoolean.new(false)
-      @flush_next = AtomicBoolean.new(false)
+      # NOTE: instance variables are effectively volatile. Don't need them to be
+      #       Atomic to ensure visibility.
+      @shutdown = false
+      @flush_next = false
     end
 
     def flush
-      @flush_next.set(true)
+      @flush_next = true
     end
 
     def shutdown
-      @shutdown.set(true)
+      @shutdown = true
     end
 
     def run
@@ -115,19 +117,19 @@ module Telekinesis
 
           # NOTE: The value of flush_next can change while the call to result.nil?
           #       happens. That's fine. It doesn't really matter.
-          if result.nil? && @flush_next.get
+          if result.nil? && @flush_next
             result = @serializer.flush
           end
 
           # NOTE: flip the flag back here no matter what:
           #         result.nil? => flushed already
           #         !result.nil? => the last record flushed, so there's new data being sent.
-          @flush_next.set(false)
+          @flush_next = false
           if result
             put_data(result)
           end
 
-          break if @shutdown.get
+          break if @shutdown
         end
       rescue => e
         Telekinesis.logger.error("Async producer thread died: #{e}")
