@@ -73,7 +73,16 @@ end
 
 require 'rake/testtask'
 
-Rake::TestTask.new do |t|
+# NOTE: Tests shouldn't be run without the extension being built, but converting
+#       the build task to a file task made it hard to depend on having a JDK
+#       and Maven installed. This is a little kludgy but better than the
+#       alternative.
+task :check_for_ext do
+  fat_jar = artifact_name('ext/pom.xml')
+  Rake::Task["build:ext"].invoke unless File.exists?("lib/telekinesis/#{fat_jar}")
+end
+
+Rake::TestTask.new(:test => :check_for_ext) do |t|
   t.test_files = FileList["test/test_*.rb"].exclude(/test_helper/)
   t.verbose = true
 end
