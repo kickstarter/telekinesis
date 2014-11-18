@@ -85,7 +85,7 @@ class AsyncHanlderTest < Minitest::Test
         assert_match(/^(banana\n)$/, payload)
         bananas += payload.split(/\n/)
       end
-      assert_equal(30 - 14, bananas.size)
+      assert_equal(["banana"] * (30 - 14), bananas)
     end
 
     should "process all events in the queue before shutting down" do
