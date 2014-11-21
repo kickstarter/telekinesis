@@ -1,7 +1,4 @@
 require 'bundler/setup'
-require_relative 'lib/telekinesis/version'
-
-VERSION = Telekinesis::VERSION
 
 Bundler.require(:development)
 
@@ -29,6 +26,8 @@ def artifact_name(path)
 end
 
 namespace :build do
+  require_relative 'lib/telekinesis/version'
+
   task :have_maven? do
     log_ok("Checking for maven") do
       `which mvn`
@@ -49,8 +48,24 @@ namespace :build do
     end
   end
 
+  task :update_pom_version do
+    File.open('ext/pom.xml', 'r+') do |f|
+      doc = Nokogiri::XML(f)
+      pom_version = doc.css("project>version")
+
+      if pom_version.text != Telekinesis::VERSION
+        log_ok("Updating pom.xml version") do
+          pom_version.first.content = Telekinesis::VERSION
+          f.truncate(0)
+          f.rewind
+          f.write(doc.to_xml)
+        end
+      end
+    end
+  end
+
   desc "Build the Java extensions for this gem. Requires JDK6+ and Maven"
-  task :ext => [:have_jdk6_or_higher?, :have_maven?] do
+  task :ext => [:have_jdk6_or_higher?, :have_maven?, :update_pom_version] do
     fat_jar = artifact_name('ext/pom.xml')
     log_ok("Building #{fat_jar}") do
       Dir.chdir("ext") do
@@ -65,11 +80,6 @@ namespace :build do
     `gem build telekinesis.gemspec`
   end
 end
-
-# TODO:
-# - Task to update the version in pom.xml to Kinesis::VERSION
-# - Namespaces?
-
 
 require 'rake/testtask'
 
