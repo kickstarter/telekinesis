@@ -137,7 +137,8 @@ module Telekinesis
         break if @shutdown
       end
     rescue => e
-      Telekinesis.logger.error("Async producer thread died: #{e}")
+      Telekinesis.logger.error("Async producer thread died!")
+      Telekinesis.logger.error(e)
     end
 
     def put_data(data)
