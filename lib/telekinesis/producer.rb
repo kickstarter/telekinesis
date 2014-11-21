@@ -24,7 +24,7 @@ module Telekinesis
       request
     end
 
-    def self.put_data(client, stream, data, retries = 5, retry_interval = 3)
+    def self.put_data(client, stream, data, retries = 5, retry_interval = 1)
       request = build_request(stream, data)
       tries = retries
       begin
