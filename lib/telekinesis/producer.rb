@@ -24,7 +24,7 @@ module Telekinesis
       request
     end
 
-    def self.put_data(client, stream, data, retries = 5)
+    def self.put_data(client, stream, data, retries = 5, retry_interval = 3)
       request = build_request(stream, data)
       tries = retries
       begin
@@ -34,7 +34,7 @@ module Telekinesis
         #       log it.
         Telekinesis.logger.debug("Error sending data to Kinesis (#{tries} retries remaining): #{e}")
         if (tries -= 1) > 0
-          sleep @retry_interval
+          sleep retry_interval
           retry
         end
         Telekinesis.logger.error("Request to Kinesis failed after #{retries} retries " +
