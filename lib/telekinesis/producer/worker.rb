@@ -16,25 +16,24 @@ module Telekinesis
       @client = client
       @poll_timeout = poll_timeout
       @serializer = serializer
+      @last_put_at = current_time_millis
 
       # NOTE: instance variables are effectively volatile. Don't need them to be
       #       Atomic to ensure visibility.
       @shutdown = false
-      @flush_next = false
-    end
-
-    def flush
-      @flush_next = true
     end
 
     def run
       loop do
-        next_record = @queue.poll(@poll_timeout, TimeUnit::MILLISECONDS)
+        # Wait until poll_timeout ms after the last put. This isn't a fixed wait
+        # time, data might have shown up in between then and now.
+        next_wait = [0, (@last_put_at + @poll_timeout) - current_time_millis].max
+        next_record = @queue.poll(next_wait, TimeUnit::MILLISECONDS)
 
-        # NOTE: Shutdown when the signal is given. Always flush on shutdown so
-        #       that there's no data stranded in this serializer.
+        # Shutdown when the signal is given. Always flush on shutdown so that
+        # there's no data stranded in this serializer.
         if next_record == SHUTDOWN
-          next_record, @shutdown, @flush_next = nil, true, true
+          next_record, @shutdown = nil, true
         end
 
         # NOTE: The serializer is responsible for handling any exceptions
@@ -46,25 +45,17 @@ module Telekinesis
           begin
             result = @serializer.write(next_record)
           rescue => e
-            Telekinesis.logger.error("Error serializing record: #{e}")
+            Telekinesis.logger.error("Error serializing record")
+            Telekinesis.logger.error(e)
             next
           end
-        end
-
-        # NOTE: The value of flush_next can change while the call to result.nil?
-        #       happens. That's fine. It doesn't really matter.
-        if result.nil? && @flush_next
+        else
+          Telekinesis.logger.debug("Hit max wait time. Flushing queued data.")
           result = @serializer.flush
         end
 
-        # NOTE: flip the flag back here no matter what:
-        #         result.nil? => flushed already
-        #         !result.nil? => the last record flushed, so there's new data being sent.
-        @flush_next = false
-        if result
-          put_data(result)
-        end
-
+        put_data(result) if result
+        @last_put_at = current_time_millis
         break if @shutdown
       end
     rescue => e
@@ -74,6 +65,10 @@ module Telekinesis
     end
 
     protected
+
+    def current_time_millis
+      (Time.now.to_f * 1000).to_i
+    end
 
     def put_data(data, retries = 5, retry_interval = 1)
       request = build_request(@stream, data)

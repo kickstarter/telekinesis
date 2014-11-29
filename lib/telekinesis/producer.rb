@@ -55,10 +55,6 @@ module Telekinesis
       end
     end
 
-    def flush
-      @workers.map(&:flush)
-    end
-
     def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
       # Only setting the flag needs to be synchronized. See the note in handle.
       @lock.synchronized do

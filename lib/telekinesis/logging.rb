@@ -3,7 +3,9 @@ require "telekinesis/logging/aws_logger_shim"
 require "telekinesis/logging/noop_logger_shim"
 
 module Telekinesis
-  @logger = Logger.new($stderr)
+  @logger = Logger.new($stderr).tap do |l|
+    l.level = Logger::INFO
+  end
   @aws_logger = @logger
 
   class << self
