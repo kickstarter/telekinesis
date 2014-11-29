@@ -22,11 +22,10 @@ module Telekinesis
 
   class << self
     def producer(config_hash = {}, &block)
-      stream, async, creds_provider = Config.producer_config(config_hash)
+      stream, creds_provider = Config.producer_config(config_hash)
       client = AmazonKinesisClient.new(creds_provider)
       serializer = block_given? ? block : default_serializer
-      Producer.new(async ? AsyncHandler.new(stream, client, config_hash, &serializer)
-                         : SyncHandler.new(stream, client, serializer.call))
+      Producer.new(stream, client, config_hash, &serializer)
     end
 
     def process_records(config_hash = {}, &block)

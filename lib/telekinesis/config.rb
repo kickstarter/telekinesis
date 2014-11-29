@@ -9,8 +9,7 @@ module Telekinesis
     class << self
       def producer_config(config_hash = {})
         check_key(config_hash, :stream, "Missing stream")
-        is_async = config_hash[:async] || !config_hash.include?(:async)
-        [config_hash[:stream], is_async, credentials_provider(config_hash[:creds] || {})]
+        [config_hash[:stream], credentials_provider(config_hash[:creds] || {})]
       end
 
       # Build a Kinesis consumer configuration from a hash. The following

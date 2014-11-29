@@ -23,7 +23,7 @@ class FakeClient
   end
 end
 
-class AsyncHanlderTest < Minitest::Test
+class ProducerTest < Minitest::Test
   context "async handler" do
     setup do
       @worker_count = 2
@@ -32,7 +32,7 @@ class AsyncHanlderTest < Minitest::Test
       # NOTE: Set the poll interval so that the tests can use it. That's not super
       #       great, but it's better than hard coding them.
       handler_opts = {:poll_timeout => @poll_timeout, :worker_count => @worker_count}
-      @handler = Telekinesis::AsyncHandler.new('test-stream', @client, handler_opts) do
+      @handler = Telekinesis::Producer.new('test-stream', @client, handler_opts) do
         Telekinesis::DelimitedSerializer.new(100, "\n")
       end
     end
@@ -45,7 +45,7 @@ class AsyncHanlderTest < Minitest::Test
 
     should "flush data" do
       @client.start
-      assert(@handler.handle("{}"))
+      assert(@handler.put("{}"))
       assert_nil(@client.queue.poll(@poll_timeout * 2, TimeUnit::MILLISECONDS))
 
       @handler.flush
@@ -56,7 +56,7 @@ class AsyncHanlderTest < Minitest::Test
     should "not accept more events once shut down" do
       @client.start
       @handler.shutdown
-      assert(!@handler.handle("{}"))
+      assert(!@handler.put("{}"))
     end
 
     should "batch data to the client" do
@@ -65,7 +65,7 @@ class AsyncHanlderTest < Minitest::Test
       #       write, generating records that contain "banana\n" * 14. With two
       #       workers, have to put at least 30 records to get one to flush.
       30.times do
-        @handler.handle("banana")
+        @handler.put("banana")
       end
 
       request = @client.queue.take
@@ -90,11 +90,11 @@ class AsyncHanlderTest < Minitest::Test
     should "process all events in the queue before shutting down" do
       # NOTE: Don't start the fake client yet! All workers are now blocked on
       #       trying to submit 'whatever_nerd' to the client.
-      @worker_count.times { @handler.handle("whatever_nerd") }
+      @worker_count.times { @handler.put("whatever_nerd") }
       @results = ArrayBlockingQueue.new(1000)
 
       @handler.shutdown(false) # don't block
-      assert(!@handler.handle("u can't handle me"))
+      assert(!@handler.put("u can't handle me"))
 
       @client.start
       assert(@handler.await(2, TimeUnit::SECONDS))
