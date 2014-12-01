@@ -14,6 +14,12 @@ module Telekinesis
   # distributed evenly across the shards in a stream.
   #
   # This class is thread-safe.
+  #
+  # NOTE: No low-level stats are kept on calls to producer.put, and no background
+  #       threads tracking the size of the queue are started. The user is
+  #       responsible for instrumenting those high-level details at whatever
+  #       granularity they want to. Instead, the `queue_size` hook is provided.
+  #       Put latency and count can be measured externally.
   class Producer
     MURMUR_3_128 = Hashing.murmur3_128()
 
@@ -75,6 +81,10 @@ module Telekinesis
     def await(duration = 10, unit = TimeUnit::SECONDS)
       # NOTE: Once every worker exits,
       @worker_pool.await_termination(duration, unit)
+    end
+
+    def queue_size
+      @queue.size
     end
   end
 end

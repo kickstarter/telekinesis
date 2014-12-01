@@ -45,12 +45,14 @@ module Telekinesis
           begin
             result = @serializer.write(next_record)
           rescue => e
+            Telekinesis.stats.increment("#{@stream}.serializer.write_failures")
             Telekinesis.logger.error("Error serializing record")
             Telekinesis.logger.error(e)
             next
           end
         else
           Telekinesis.logger.debug("Hit max wait time. Flushing queued data.")
+          Telekinesis.stats.increment("#{@stream}.worker.poll_timed_out")
           result = @serializer.flush
         end
 
@@ -61,6 +63,7 @@ module Telekinesis
     rescue => e
       Telekinesis.logger.error("Producer background thread died!")
       Telekinesis.logger.error(e)
+      Telekinesis.stats.increment("#{@stream}.worker.uncaught_exceptions")
       raise e
     end
 
@@ -71,27 +74,34 @@ module Telekinesis
     end
 
     def put_data(data, retries = 5, retry_interval = 1)
-      request = build_request(@stream, data)
+      request = build_request(data)
+
       tries = retries
       begin
-        @client.put_record(request)
+        Telekinesis.stats.time("#{@stream}.kinesis.put_records.time") do
+          @client.put_record(request)
+        end
       rescue => e
         # NOTE: AWS errors are often transient. Just back off and sleep, debug
         #       log it.
         Telekinesis.logger.debug("Error sending data to Kinesis (#{tries} retries remaining): #{e}")
         if (tries -= 1) > 0
           sleep retry_interval
+          Telekinesis.stats.increment("#{@stream}.kinesis.put_records.retries")
           retry
         end
         Telekinesis.logger.error("Request to Kinesis failed after #{retries} retries " +
                                  "(stream=#{request.stream_name} partition_key=#{request.partition_key}).")
-        raise
+        Telekinesis.stats.increment("#{@stream}.kinesis.put_records.failures")
       end
     end
 
-    def build_request(stream, payload)
+    def build_request(payload)
+      # NOTE: Timing is the only way to get a distribution
+      Telekinesis.stats.timing("#{@stream}.kinesis.put_records.payload_size", payload.size)
+
       request = PutRecordRequest.new
-      request.stream_name = stream
+      request.stream_name = @stream
       request.data = ByteBuffer.wrap(payload)
       request.partition_key = hash_code(payload).to_string
       request
@@ -101,5 +111,4 @@ module Telekinesis
       Producer::MURMUR_3_128.new_hasher.put_bytes(data).hash()
     end
   end
-
 end
