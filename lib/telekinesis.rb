@@ -8,6 +8,7 @@ require "telekinesis/version"
 require "telekinesis/telekinesis-#{Telekinesis::VERSION}.jar"
 
 require "telekinesis/logging"
+require "telekinesis/stats"
 require "telekinesis/config"
 require "telekinesis/producer"
 require "telekinesis/consumer/block_consumer"
