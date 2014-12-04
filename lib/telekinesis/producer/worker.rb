@@ -45,14 +45,14 @@ module Telekinesis
           begin
             result = @serializer.write(next_record)
           rescue => e
-            Telekinesis.stats.increment("#{@stream}.serializer.write_failures")
+            Telekinesis.stats.increment("serializer.write_failures.#{@stream}")
             Telekinesis.logger.error("Error serializing record")
             Telekinesis.logger.error(e)
             next
           end
         else
           Telekinesis.logger.debug("Hit max wait time. Flushing queued data.")
-          Telekinesis.stats.increment("#{@stream}.worker.poll_timed_out")
+          Telekinesis.stats.increment("worker.poll_timed_out.#{@stream}")
           result = @serializer.flush
         end
 
@@ -63,7 +63,7 @@ module Telekinesis
     rescue => e
       Telekinesis.logger.error("Producer background thread died!")
       Telekinesis.logger.error(e)
-      Telekinesis.stats.increment("#{@stream}.worker.uncaught_exceptions")
+      Telekinesis.stats.increment("worker.uncaught_exceptions.#{@stream}")
       raise e
     end
 
@@ -87,18 +87,18 @@ module Telekinesis
         Telekinesis.logger.debug("Error sending data to Kinesis (#{tries} retries remaining): #{e}")
         if (tries -= 1) > 0
           sleep retry_interval
-          Telekinesis.stats.increment("#{@stream}.kinesis.put_records.retries")
+          Telekinesis.stats.increment("kinesis.put_records.retries.#{@stream}")
           retry
         end
         Telekinesis.logger.error("Request to Kinesis failed after #{retries} retries " +
                                  "(stream=#{request.stream_name} partition_key=#{request.partition_key}).")
-        Telekinesis.stats.increment("#{@stream}.kinesis.put_records.failures")
+        Telekinesis.stats.increment("kinesis.put_records.failures.#{@stream}")
       end
     end
 
     def build_request(payload)
       # NOTE: Timing is the only way to get a distribution
-      Telekinesis.stats.timing("#{@stream}.kinesis.put_records.payload_size", payload.size)
+      Telekinesis.stats.timing("kinesis.put_records.payload_size.#{@stream}", payload.size)
 
       request = PutRecordRequest.new
       request.stream_name = @stream
