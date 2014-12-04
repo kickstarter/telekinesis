@@ -92,6 +92,7 @@ module Telekinesis
         end
         Telekinesis.logger.error("Request to Kinesis failed after #{retries} retries " +
                                  "(stream=#{request.stream_name} partition_key=#{request.partition_key}).")
+        Telekinesis.logger.error(e)
         Telekinesis.stats.increment("kinesis.put_records.failures.#{@stream}")
       end
     end
