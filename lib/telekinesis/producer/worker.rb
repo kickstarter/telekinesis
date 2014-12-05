@@ -78,7 +78,7 @@ module Telekinesis
 
       tries = retries
       begin
-        Telekinesis.stats.time("#{@stream}.kinesis.put_records.time") do
+        Telekinesis.stats.time("kinesis.put_records.time.#{@stream}") do
           @client.put_record(request)
         end
       rescue => e
