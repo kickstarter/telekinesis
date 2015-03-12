@@ -1,4 +1,5 @@
 require "telekinesis/producer/worker"
+require "telekinesis/producer/worker_two"
 require "telekinesis/producer/serializer"
 
 java_import java.util.concurrent.TimeUnit
@@ -23,11 +24,9 @@ module Telekinesis
   class Producer
     MURMUR_3_128 = Hashing.murmur3_128()
 
-    attr_reader :stream
+    attr_reader :stream, :use_put_records
 
     def initialize(stream, client, options = {}, &block)
-      raise ArgumentError if !block_given?
-
       @stream = stream
       @client = client
       @shutdown = false
@@ -36,15 +35,26 @@ module Telekinesis
 
       # Create workers outside of pool.submit so that the handler can keep
       # a reference to each worker for calls to flush and shutdown.
-      @poll_timeout = options[:poll_timeout] || 1000
-      worker_count = options[:worker_count] || 3
+      @use_put_records = options[:use_put_records] || false
+      @poll_timeout    = options[:poll_timeout] || 1000
+      worker_count     = options[:worker_count] || 3
+
       @workers = worker_count.times.map do
-          ProducerWorker.new(@stream, @queue, @client, @poll_timeout, block.call)
+        build_worker(&block)
       end
 
       thread_factory = ThreadFactoryBuilder.new.set_name_format("#{stream}-handler-worker-%d").build
       @worker_pool = Executors.new_fixed_thread_pool(worker_count, thread_factory)
       @workers.each{ |w| @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w) }
+    end
+
+    def build_worker(&block)
+      if use_put_records
+        ProducerWorkerTwo.new(@stream, @queue, @client, @poll_timeout)
+      else
+        raise ArgumentError if !block_given?
+        ProducerWorker.new(@stream, @queue, @client, @poll_timeout, block.call)
+      end
     end
 
     def put(record)
