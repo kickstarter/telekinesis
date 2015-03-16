@@ -1,7 +1,6 @@
 require "telekinesis/producer/async_producer_worker"
 
 java_import java.util.concurrent.TimeUnit
-java_import com.google.common.hash.Hashing
 java_import java.util.concurrent.Executors
 java_import java.util.concurrent.ArrayBlockingQueue
 java_import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -20,8 +19,6 @@ module Telekinesis
   #       granularity they want to. Instead, the `queue_size` hook is provided.
   #       Put latency and count can be measured externally.
   class AsyncProducer
-    MURMUR_3_128 = Hashing.murmur3_128()
-
     attr_reader :stream, :use_put_records
 
     def initialize(stream, client, options = {})
