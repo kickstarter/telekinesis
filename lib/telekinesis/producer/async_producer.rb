@@ -28,18 +28,18 @@ module Telekinesis
       @queue = ArrayBlockingQueue.new(options[:queue_size] || 1000)
       @lock = java.lang.Object.new
 
-      # Create workers outside of pool.submit so that the handler can keep
-      # a reference to each worker for calls to flush and shutdown.
       send_every   = options[:send_every_ms] || 1000
       worker_count = options[:worker_count] || 3
 
+      # Create workers outside of pool.submit so that the handler can keep
+      # a reference to each worker for calls to flush and shutdown.
+      @worker_pool = build_executor(worker_count)
       @workers = worker_count.times.map do
         AsyncProducerWorker.new(self, @queue, send_every)
       end
-
-      thread_factory = ThreadFactoryBuilder.new.set_name_format("#{stream}-producer-worker-%d").build
-      @worker_pool = Executors.new_fixed_thread_pool(worker_count, thread_factory)
-      @workers.each{ |w| @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w) }
+      @workers.each do |w|
+        @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w)
+      end
     end
 
     def put(key, data)
@@ -84,6 +84,15 @@ module Telekinesis
 
     def queue_size
       @queue.size
+    end
+
+    protected
+
+    def build_executor(worker_count)
+      Executors.new_fixed_thread_pool(
+        worker_count,
+        ThreadFactoryBuilder.new.set_name_format("#{stream}-producer-worker-%d").build
+      )
     end
   end
 end
