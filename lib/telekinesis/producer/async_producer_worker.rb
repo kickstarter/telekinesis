@@ -84,7 +84,8 @@ module Telekinesis
           )
         end
       rescue => e
-        Telekinesis.logger.debug("Error sending data to Kinesis (#{retries} retries remaining): #{e}")
+        Telekinesis.logger.debug("Error sending data to Kinesis (#{retries} retries remaining)")
+        Telekinesis.logger.debug(e)
         if (retries -= 1) > 0
           sleep retry_interval
           retry
