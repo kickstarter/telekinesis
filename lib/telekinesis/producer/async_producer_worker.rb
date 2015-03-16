@@ -26,17 +26,17 @@ module Telekinesis
     def run
       loop do
         next_wait = [0, (@last_put_at + @send_every) - current_time_millis].max
-        next_record = @queue.poll(next_wait, TimeUnit::MILLISECONDS)
+        next_item = @queue.poll(next_wait, TimeUnit::MILLISECONDS)
 
-        if next_record == ProducerWorker::SHUTDOWN
-          next_record, @shutdown = nil, true
+        if next_item == ProducerWorker::SHUTDOWN
+          next_item, @shutdown = nil, true
         end
 
-        unless next_record.nil?
-          buffer(next_record)
+        unless next_item.nil?
+          buffer(next_item)
         end
 
-        if buffer_full || (next_record.nil? && buffer_has_records)
+        if buffer_full || (next_item.nil? && buffer_has_records)
           put_records(build_request(get_and_reset_buffer))
         end
 
@@ -54,8 +54,8 @@ module Telekinesis
       (Time.now.to_f * 1000).to_i
     end
 
-    def buffer(data)
-      @buffer << data
+    def buffer(item)
+      @buffer << item
     end
 
     def buffer_full
@@ -97,21 +97,16 @@ module Telekinesis
       end
     end
 
-    def build_request(records)
-
+    def build_request(items)
       PutRecordsRequest.new.tap do |request|
         request.stream_name = @stream
-        request.records = records.map(&:to_java_bytes).map do |bytes|
+        request.records = items.map do |key, data|
           PutRecordsRequestEntry.new.tap do |entry|
-            entry.data = ByteBuffer.wrap(bytes)
-            entry.partition_key = hash_code(bytes)
+            entry.partition_key = key
+            entry.data = ByteBuffer.wrap(data.to_java_bytes)
           end
         end
       end
-    end
-
-    def hash_code(bytes)
-      Hashing.murmur3_128.new_hasher.put_bytes(bytes).hash().to_s
     end
   end
 end

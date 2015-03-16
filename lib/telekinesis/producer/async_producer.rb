@@ -46,7 +46,7 @@ module Telekinesis
       @workers.each{ |w| @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w) }
     end
 
-    def put(record)
+    def put(key, data)
       # The lock ensures that no new data can be added to the queue while
       # the shutdown flag is being set. Once the shutdown flag is set, it guards
       # handler.put and lets it return false immediately instead of blocking.
@@ -54,7 +54,7 @@ module Telekinesis
         if @shutdown
           false
         else
-          @queue.put(record)
+          @queue.put([key, data])
           true
         end
       end
