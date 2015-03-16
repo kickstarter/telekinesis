@@ -5,7 +5,7 @@ java_import com.amazonaws.services.kinesis.model.PutRecordsRequest
 java_import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry
 
 module Telekinesis
-  class ProducerWorkerTwo
+  class ProducerWorker
     # NOTE: This isn't configurable right now because it's a Kinesis API limit.
     # TODO: Set an option to lower this.
     MAX_BUFFER_SIZE = 500

@@ -26,7 +26,7 @@ module Telekinesis
 
     attr_reader :stream, :use_put_records
 
-    def initialize(stream, client, options = {}, &block)
+    def initialize(stream, client, options = {})
       @stream = stream
       @client = client
       @shutdown = false
@@ -40,21 +40,12 @@ module Telekinesis
       worker_count     = options[:worker_count] || 3
 
       @workers = worker_count.times.map do
-        build_worker(&block)
+        ProducerWorkerTwo.new(@stream, @queue, @client, @poll_timeout)
       end
 
       thread_factory = ThreadFactoryBuilder.new.set_name_format("#{stream}-handler-worker-%d").build
       @worker_pool = Executors.new_fixed_thread_pool(worker_count, thread_factory)
       @workers.each{ |w| @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w) }
-    end
-
-    def build_worker(&block)
-      if use_put_records
-        ProducerWorkerTwo.new(@stream, @queue, @client, @poll_timeout)
-      else
-        raise ArgumentError if !block_given?
-        ProducerWorker.new(@stream, @queue, @client, @poll_timeout, block.call)
-      end
     end
 
     def put(record)
