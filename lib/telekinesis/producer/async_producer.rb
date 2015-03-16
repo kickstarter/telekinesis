@@ -21,7 +21,7 @@ module Telekinesis
   #       responsible for instrumenting those high-level details at whatever
   #       granularity they want to. Instead, the `queue_size` hook is provided.
   #       Put latency and count can be measured externally.
-  class Producer
+  class AsyncProducer
     MURMUR_3_128 = Hashing.murmur3_128()
 
     attr_reader :stream, :use_put_records
