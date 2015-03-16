@@ -19,7 +19,7 @@ module Telekinesis
   #       granularity they want to. Instead, the `queue_size` hook is provided.
   #       Put latency and count can be measured externally.
   class AsyncProducer
-    attr_reader :stream, :use_put_records
+    attr_reader :stream, :client, :use_put_records
 
     def initialize(stream, client, options = {})
       @stream = stream
@@ -30,15 +30,14 @@ module Telekinesis
 
       # Create workers outside of pool.submit so that the handler can keep
       # a reference to each worker for calls to flush and shutdown.
-      @use_put_records = options[:use_put_records] || false
-      @poll_timeout    = options[:poll_timeout] || 1000
-      worker_count     = options[:worker_count] || 3
+      send_every   = options[:send_every_ms] || 1000
+      worker_count = options[:worker_count] || 3
 
       @workers = worker_count.times.map do
-        AsyncProducerWorker.new(@stream, @queue, @client, @poll_timeout)
+        AsyncProducerWorker.new(self, @queue, send_every)
       end
 
-      thread_factory = ThreadFactoryBuilder.new.set_name_format("#{stream}-handler-worker-%d").build
+      thread_factory = ThreadFactoryBuilder.new.set_name_format("#{stream}-producer-worker-%d").build
       @worker_pool = Executors.new_fixed_thread_pool(worker_count, thread_factory)
       @workers.each{ |w| @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w) }
     end
@@ -55,6 +54,10 @@ module Telekinesis
           true
         end
       end
+    end
+
+    def on_failure(failed_records, failures)
+      Telekinesis.logger.error("put_records returned #{failed_records} failures")
     end
 
     def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)

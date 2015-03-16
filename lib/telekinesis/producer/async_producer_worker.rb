@@ -10,10 +10,11 @@ module Telekinesis
     # TODO: Set an option to lower this.
     MAX_BUFFER_SIZE = 500
 
-    def initialize(stream, queue, client, send_every)
-      @stream = stream
-      @queue = queue
-      @client = client
+    def initialize(producer, queue, send_every)
+      @producer = producer
+      @queue    = queue
+      @stream   = producer.stream  # for convenience
+      @client   = producer.client  # for convenience
 
       @send_every = send_every
       @last_put_at = current_time_millis
@@ -71,19 +72,16 @@ module Telekinesis
       ret
     end
 
-    def put_records(request, retries = 5, retry_interval = 1)
+    def put_records(request, retries = 5, retry_interval = 1.0)
       begin
         response = Telekinesis.stats.time("kinesis.put_records.time.#{@stream}") do
           @client.put_records(request)
         end
         if response.failed_record_count > 0
-          # FIXME: actually handle this error.
-          Telekinesis.logger.error("PutRecords: #{response.failed_record_count} records were failures!")
-          response.get_records.each do |response_record|
-            if response_record.error_code
-              Telekinesis.logger.error("    error_code=#{response_record.error_code} error_message=#{response_record.error_message}")
-            end
-          end
+          @producer.on_failure(
+            response.failed_record_count,
+            response.get_records.reject{|r| r.error_code.nil?}
+          )
         end
       rescue => e
         Telekinesis.logger.debug("Error sending data to Kinesis (#{retries} retries remaining): #{e}")
@@ -91,8 +89,7 @@ module Telekinesis
           sleep retry_interval
           retry
         end
-        Telekinesis.logger.error("Request to Kinesis failed after #{retries} retries " +
-                                 "(stream=#{request.stream_name} partition_key=#{request.partition_key}).")
+        Telekinesis.logger.error("PutRecords request to Kinesis failed after #{retries} retries")
         Telekinesis.logger.error(e)
       end
     end
