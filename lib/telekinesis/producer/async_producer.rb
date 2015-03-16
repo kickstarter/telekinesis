@@ -1,6 +1,4 @@
-require "telekinesis/producer/worker"
-require "telekinesis/producer/worker_two"
-require "telekinesis/producer/serializer"
+require "telekinesis/producer/async_producer_worker"
 
 java_import java.util.concurrent.TimeUnit
 java_import com.google.common.hash.Hashing
@@ -40,7 +38,7 @@ module Telekinesis
       worker_count     = options[:worker_count] || 3
 
       @workers = worker_count.times.map do
-        ProducerWorkerTwo.new(@stream, @queue, @client, @poll_timeout)
+        AsyncProducerWorker.new(@stream, @queue, @client, @poll_timeout)
       end
 
       thread_factory = ThreadFactoryBuilder.new.set_name_format("#{stream}-handler-worker-%d").build
