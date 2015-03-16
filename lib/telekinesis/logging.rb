@@ -2,6 +2,9 @@ require "logger"
 require "telekinesis/logging/aws_logger_shim"
 require "telekinesis/logging/noop_logger_shim"
 
+java_import java.util.logging.Logger
+java_import java.util.logging.LogManager
+
 module Telekinesis
   @logger = Logger.new($stderr).tap do |l|
     l.level = Logger::INFO
@@ -15,27 +18,18 @@ module Telekinesis
 
   module Logging
     def self.capture_java_logging
-      # Strip the root handler off JUL and set up the proxy. None of our deps
-      # are bad enough citizens that they configure any JUL handlers on their
-      # own.
-      strip_handlers(root_logger).add_handler(AwsLoggerShim.new)
+      LogManager.log_manager.reset
+      root_logger.add_handler(RubyLoggerHandler.new(Telekinesis.aws_logger))
     end
 
     def self.disable_java_logging
-      strip_handlers(root_logger).add_handler(NoopLoggerShim.new)
+      LogManager.log_manager.reset
     end
 
     protected
 
     def self.root_logger
-      java.util.logging.LogManager.log_manager.get_logger("")
-    end
-
-    def self.strip_handlers(logger)
-      logger.get_handlers.each do |h|
-        logger.remove_handler(h)
-      end
-      logger
+      Logger.get_logger("")
     end
   end
 end
