@@ -1,3 +1,4 @@
+require "telekinesis/producer/util"
 require "telekinesis/producer/async_producer_worker"
 
 java_import java.util.concurrent.TimeUnit
@@ -6,18 +7,6 @@ java_import java.util.concurrent.ArrayBlockingQueue
 java_import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 module Telekinesis
-  ##
-  # A high-level producer for records that should be batched together before
-  # being sent to Kinesis. Assumes that batches of records should be
-  # distributed evenly across the shards in a stream.
-  #
-  # This class is thread-safe.
-  #
-  # NOTE: No low-level stats are kept on calls to producer.put, and no background
-  #       threads tracking the size of the queue are started. The user is
-  #       responsible for instrumenting those high-level details at whatever
-  #       granularity they want to. Instead, the `queue_size` hook is provided.
-  #       Put latency and count can be measured externally.
   class AsyncProducer
     attr_reader :stream, :client, :use_put_records
 
@@ -26,7 +15,7 @@ module Telekinesis
       @client = client
       @shutdown = false
       @queue = ArrayBlockingQueue.new(options[:queue_size] || 1000)
-      @lock = java.lang.Object.new
+      @lock = Util::ReadWriteLock.new
 
       send_every   = options[:send_every_ms] || 1000
       worker_count = options[:worker_count] || 3
@@ -43,10 +32,11 @@ module Telekinesis
     end
 
     def put(key, data)
-      # The lock ensures that no new data can be added to the queue while
-      # the shutdown flag is being set. Once the shutdown flag is set, it guards
-      # handler.put and lets it return false immediately instead of blocking.
-      @lock.synchronized do
+      # NOTE: The lock ensures that no new data can be added to the queue after
+      # the shutdown flag has been set. See the note in shutdown for details.
+      # NOTE: Since this is a read lock, multiple threads can `put` data at the
+      # same time without blocking on each other.
+      @lock.read_lock do
         if @shutdown
           false
         else
@@ -61,24 +51,25 @@ module Telekinesis
     end
 
     def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
-      # Only setting the flag needs to be synchronized. See the note in handle.
-      @lock.synchronized do
+      # NOTE: Since a write_lock is exclusive, this prevents any data from being
+      # added to the queue while the SHUTDOWN tokens are being inserted. Without
+      # the lock, data can end up in the queue behind all of the shutdown tokens
+      # and be lost. This happens if the shutdown flag is be flipped by a thread
+      # calling shutdown after another thread has checked the "if @shutdown"
+      # condition in put but before it's called queue.put.
+      @lock.write_lock do
         @shutdown = true
+        @workers.size.times do
+          @queue.put(ProducerWorker::SHUTDOWN)
+        end
       end
 
-      # Since each worker takes one queue item at a time and terminates after
-      # taking a single shutdown token, putting N tokens in the queue for N
-      # workers should shut down all N workers.
-      @workers.size.times do
-        @queue.put(ProducerWorker::SHUTDOWN)
-      end
-
+      # Don't interrupt workers by calling shutdown_now.
       @worker_pool.shutdown
       await(duration, unit) if block
     end
 
-    def await(duration = 10, unit = TimeUnit::SECONDS)
-      # NOTE: Once every worker exits,
+    def await(duration, unit = TimeUnit::SECONDS)
       @worker_pool.await_termination(duration, unit)
     end
 
