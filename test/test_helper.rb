@@ -3,4 +3,7 @@ require "bundler/setup"
 
 Bundler.require(:development)
 
-require "telekinesis"
+require "telekinesis/stats"
+require "telekinesis/logging"
+require "telekinesis/telekinesis-#{Telekinesis::VERSION}.jar"
+
