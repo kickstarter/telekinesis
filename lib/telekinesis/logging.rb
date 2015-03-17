@@ -2,7 +2,6 @@ require "logger"
 require "telekinesis/logging/aws_logger_shim"
 require "telekinesis/logging/noop_logger_shim"
 
-java_import java.util.logging.Logger
 java_import java.util.logging.LogManager
 
 module Telekinesis
@@ -29,7 +28,7 @@ module Telekinesis
     protected
 
     def self.root_logger
-      Logger.get_logger("")
+      java.util.logging.Logger.get_logger("")
     end
   end
 end
