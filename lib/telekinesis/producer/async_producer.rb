@@ -8,23 +8,31 @@ java_import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 module Telekinesis
   class AsyncProducer
+    # NOTE: This isn't configurable right now because it's a Kinesis API limit.
+    # TODO: Set an option to lower this.
+    # FIXME: Move this into KinesisUtils or something. Used in two places.
+    MAX_PUT_RECORDS_SIZE = 500
+
     attr_reader :stream, :client
 
     def initialize(stream, client, options = {})
       @stream = stream
       @client = client
       @shutdown = false
-      @queue = ArrayBlockingQueue.new(options[:queue_size] || 1000)
-      @lock = Util::ReadWriteLock.new
 
+      queue_size   = options[:queue_size] || 1000
       send_every   = options[:send_every_ms] || 1000
       worker_count = options[:worker_count] || 3
+      send_size    = options[:send_size] || MAX_PUT_RECORDS_SIZE
+      raise ArgumentError("buffer_size too large") if send_size > MAX_PUT_RECORDS_SIZE
 
+      @queue = ArrayBlockingQueue.new(queue_size)
+      @lock = Util::ReadWriteLock.new
       # Create workers outside of pool.submit so that the handler can keep
       # a reference to each worker for calls to flush and shutdown.
       @worker_pool = build_executor(worker_count)
       @workers = worker_count.times.map do
-        AsyncProducerWorker.new(self, @queue, send_every)
+        AsyncProducerWorker.new(self, @queue, send_size, send_every)
       end
       @workers.each do |w|
         @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w)

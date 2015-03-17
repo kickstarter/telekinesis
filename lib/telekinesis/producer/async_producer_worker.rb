@@ -1,4 +1,3 @@
-java_import com.google.common.hash.Hashing
 java_import java.nio.ByteBuffer
 java_import java.util.concurrent.TimeUnit
 java_import com.amazonaws.services.kinesis.model.PutRecordsRequest
@@ -8,22 +7,17 @@ module Telekinesis
   class AsyncProducerWorker
     SHUTDOWN = :shutdown
 
-    # NOTE: This isn't configurable right now because it's a Kinesis API limit.
-    # TODO: Set an option to lower this.
-    # FIXME: Move this into KinesisUtils or something. Used in two places.
-    MAX_BUFFER_SIZE = 500
-
-    def initialize(producer, queue, send_every)
+    def initialize(producer, queue, send_size, send_every)
       @producer = producer
-      @queue    = queue
-      @stream   = producer.stream  # for convenience
-      @client   = producer.client  # for convenience
-
+      @queue = queue
+      @send_size = send_size
       @send_every = send_every
-      @last_put_at = current_time_millis
 
-      # NOTE: instance variables are volatile by default
+      @stream = producer.stream  # for convenience
+      @client = producer.client  # for convenience
+
       @buffer = []
+      @last_put_at = current_time_millis
       @shutdown = false
     end
 
@@ -63,7 +57,7 @@ module Telekinesis
     end
 
     def buffer_full
-      @buffer.size == MAX_BUFFER_SIZE
+      @buffer.size == @max_send_size
     end
 
     def buffer_has_records

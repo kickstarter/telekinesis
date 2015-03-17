@@ -1,3 +1,5 @@
+java_import java.util.concurrent.locks.ReentrantReadWriteLock
+
 module Telekinesis
   module Util
     # Sugar around java.util.concurrent.ReentrantReadWriteLock so that it's
