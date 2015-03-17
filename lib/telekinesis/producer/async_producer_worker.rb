@@ -6,6 +6,8 @@ java_import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry
 
 module Telekinesis
   class AsyncProducerWorker
+    SHUTDOWN = :shutdown
+
     # NOTE: This isn't configurable right now because it's a Kinesis API limit.
     # TODO: Set an option to lower this.
     # FIXME: Move this into KinesisUtils or something. Used in two places.
@@ -30,7 +32,7 @@ module Telekinesis
         next_wait = [0, (@last_put_at + @send_every) - current_time_millis].max
         next_item = @queue.poll(next_wait, TimeUnit::MILLISECONDS)
 
-        if next_item == ProducerWorker::SHUTDOWN
+        if next_item == SHUTDOWN
           next_item, @shutdown = nil, true
         end
 

@@ -76,7 +76,7 @@ module Telekinesis
       @lock.write_lock do
         @shutdown = true
         @workers.size.times do
-          @queue.put(ProducerWorker::SHUTDOWN)
+          @queue.put(AsyncProducerWorker::SHUTDOWN)
         end
       end
 
