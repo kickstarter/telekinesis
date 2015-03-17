@@ -46,6 +46,22 @@ module Telekinesis
       end
     end
 
+    def put_all(items)
+      # NOTE: Doesn't delegate to put so that shutdown can't cause a call to
+      # put_all to only enqueue some items.
+      # NOTE: see the note in put for information about this read_lock.
+      @lock.read_lock do
+        if @shutdown
+          false
+        else
+          items.each do |key, data|
+            @queue.put([key, data])
+          end
+          true
+        end
+      end
+    end
+
     def on_failure(failures)
       Telekinesis.logger.error("put_records returned #{failures.size} failures")
     end
