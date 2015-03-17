@@ -8,6 +8,7 @@ module Telekinesis
   class AsyncProducerWorker
     # NOTE: This isn't configurable right now because it's a Kinesis API limit.
     # TODO: Set an option to lower this.
+    # FIXME: Move this into KinesisUtils or something. Used in two places.
     MAX_BUFFER_SIZE = 500
 
     def initialize(producer, queue, send_every)
@@ -78,10 +79,7 @@ module Telekinesis
           @client.put_records(request)
         end
         if response.failed_record_count > 0
-          @producer.on_failure(
-            response.failed_record_count,
-            response.get_records.reject{|r| r.error_code.nil?}
-          )
+          @producer.on_failure(response.get_records.reject{|r| r.error_code.nil?})
         end
       rescue => e
         Telekinesis.logger.debug("Error sending data to Kinesis (#{retries} retries remaining)")

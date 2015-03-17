@@ -8,7 +8,7 @@ java_import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 module Telekinesis
   class AsyncProducer
-    attr_reader :stream, :client, :use_put_records
+    attr_reader :stream, :client
 
     def initialize(stream, client, options = {})
       @stream = stream
@@ -46,8 +46,8 @@ module Telekinesis
       end
     end
 
-    def on_failure(failed_records, failures)
-      Telekinesis.logger.error("put_records returned #{failed_records} failures")
+    def on_failure(failures)
+      Telekinesis.logger.error("put_records returned #{failures.size} failures")
     end
 
     def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
