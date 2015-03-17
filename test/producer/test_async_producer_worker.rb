@@ -1,9 +1,8 @@
 require_relative '../test_helper'
 
-require "telekinesis/producer/async_producer"
+require "telekinesis/producer/async_producer_worker"
 
 java_import java.util.concurrent.TimeUnit
-java_import java.util.concurrent.CountDownLatch
 java_import java.util.concurrent.ArrayBlockingQueue
 
 
@@ -93,6 +92,24 @@ class AsyncProducerWorkerTest < Minitest::Test
         assert_equal([["key", "value"]],
                      request.records.map{|r| [r.partition_key, string_from_bytebuffer(r.data)]},
                      "Payload should be a nested array")
+      end
+    end
+
+    context "with fewer than send_size items in queue" do
+      should "send one request" do
+        assert false
+      end
+    end
+
+    context "with more than send_size items in queue" do
+      should "send multiple requests of at most send_size" do
+        assert false
+      end
+    end
+
+    context "when requests fail" do
+      should "call the producer with all failed requests" do
+        assert false
       end
     end
   end
