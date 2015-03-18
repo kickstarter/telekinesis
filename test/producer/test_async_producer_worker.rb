@@ -21,6 +21,18 @@ class AsyncProducerWorkerTest < Minitest::Test
     end
   end
 
+  # NOTE: This stub mocks the behavior of timing out on poll once all of the
+  # items have been drained from the internal list.
+  class StubQueue
+    def initialize(items)
+      @items = items
+    end
+
+    def poll(duration, unit)
+      @items.shift
+    end
+  end
+
   class CapturingClient
     attr_reader :results
 
@@ -39,12 +51,13 @@ class AsyncProducerWorkerTest < Minitest::Test
     StubProducer.new(stream, CapturingClient.new(responses))
   end
 
+  # NOTE: This always adds SHUTDOWN to the end of the list so that the worker
+  # can be run in the test thread and there's no need to deal with coordination
+  # across multiple threads. To simulate the worker timing out on a queue.poll
+  # just add 'nil' to your list of items in the queue at the appropriate place.
   def queue_with(*items)
-    queue_size = [items.size, 1000].max
     to_put = items + [Telekinesis::AsyncProducerWorker::SHUTDOWN]
-    ArrayBlockingQueue.new(queue_size).tap do |queue|
-      to_put.each{|item| queue.put(item)}
-    end
+    StubQueue.new(to_put)
   end
 
   def build_worker
@@ -58,7 +71,7 @@ class AsyncProducerWorkerTest < Minitest::Test
   context "producer worker" do
     setup do
       @send_size = 10
-      @send_every = 500 # ms
+      @send_every = 100 # ms
     end
 
     context "with only SHUTDOWN in the queue" do
@@ -88,6 +101,25 @@ class AsyncProducerWorkerTest < Minitest::Test
         request, = @producer.client.results.to_a
         assert_equal(request.stream_name, 'test', "request should have the correct stream name")
         assert_equal([["key", "value"]], records_as_kv_pairs(request), "Request payload should be kv pairs")
+      end
+    end
+
+    context "with buffered data that times out" do
+      setup do
+        @items = [["key", "value"]]
+
+        @producer = stub_producer('test')
+        # Explicitly add 'nil' to fake the queue being empty
+        @queue = queue_with(*(@items + [nil]))
+        @worker = build_worker
+      end
+
+      should "send whatever is in the queue" do
+        @worker.run
+        request, = @producer.client.results.to_a
+        assert(request, "should produce data")
+        assert_equal('test', request.stream_name, "request should have the correct stream name")
+        assert_equal(@items, records_as_kv_pairs(request), "Request payload should be kv pairs")
       end
     end
 
