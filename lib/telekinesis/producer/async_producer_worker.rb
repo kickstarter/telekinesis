@@ -57,7 +57,7 @@ module Telekinesis
     end
 
     def buffer_full
-      @buffer.size == @max_send_size
+      @buffer.size == @send_size
     end
 
     def buffer_has_records
