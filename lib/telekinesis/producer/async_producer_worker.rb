@@ -35,7 +35,7 @@ module Telekinesis
         end
 
         if buffer_full || (next_item.nil? && buffer_has_records)
-          put_records(build_request(get_and_reset_buffer))
+          put_records(get_and_reset_buffer)
         end
 
         break if @shutdown
@@ -69,13 +69,14 @@ module Telekinesis
       ret
     end
 
-    def put_records(request, retries = 5, retry_interval = 1.0)
+    def put_records(items, retries = 5, retry_interval = 1.0)
+      request = build_request(items)
       begin
         response = Telekinesis.stats.time("kinesis.put_records.time.#{@stream}") do
           @client.put_records(request)
         end
         if response.failed_record_count > 0
-          @producer.on_failure(response.get_records.reject{|r| r.error_code.nil?})
+          @producer.on_failure(zip_with_error_code_and_message(items, response.records))
         end
       rescue => e
         Telekinesis.logger.debug("Error sending data to Kinesis (#{retries} retries remaining)")
@@ -98,6 +99,12 @@ module Telekinesis
             entry.data = ByteBuffer.wrap(data.to_java_bytes)
           end
         end
+      end
+    end
+
+    def zip_with_error_code_and_message(items, records)
+      items.zip(records).reject{|_, r| r.error_code.nil?}.map do |(k, v), r|
+        [k, v, r.error_code, r.error_message]
       end
     end
   end

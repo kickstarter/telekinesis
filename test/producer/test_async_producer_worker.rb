@@ -14,8 +14,12 @@ class AsyncProducerWorkerTest < Minitest::Test
     end
   end
 
-  StubResponse = Struct.new(:failed_record_count, :get_records)
-  StubResponseEntry = Struct.new(:error_code)
+  StubResponse = Struct.new(:failed_record_count, :records)
+  StubResponseEntry = Struct.new(:error_code) do
+    def error_message
+      "potato"
+    end
+  end
 
   class CapturingClient
     attr_reader :results
@@ -139,15 +143,18 @@ class AsyncProducerWorkerTest < Minitest::Test
             StubResponseEntry.new
           end
         end
+        @expected_failures = @items.zip(@response_entries)
+                                   .reject{|_, entry| entry.error_code.nil?}
+                                   .map{|item, _| item}
 
         @producer = stub_producer('test', StubResponse.new(@response_entries.size, @response_entries))
         @queue = queue_with(*@items)
         @worker = build_worker
       end
 
-      should "call the producer with all failed requests" do
-        Timeout.timeout(0.1){@worker.run}
-        assert_equal(@producer.failures, @response_entries.reject{|e| e.error_code.nil?})
+      should "call the producer with all failed records" do
+        @worker.run
+        assert_equal(@expected_failures, @producer.failures.map{|k, v, _, _| [k, v]})
       end
     end
 
