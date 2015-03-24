@@ -19,16 +19,20 @@ module Telekinesis
         failures = put_records(batch).flat_map do |page|
           page.records.reject{|r| r.error_code.nil?}
         end
-        on_failure(failures.size, failures) if (failures.size > 0)
+        on_record_failure(failures.size, failures) if (failures.size > 0)
       end
     end
 
-    def on_failure(failures)
-      Telekinesis.logger.error("put_records returned #{failures.size} failures")
-    end
+    # Callbacks. These all default to noops.
+
+    def on_record_failure(failures); end
+    # TODO: do I actually want retries here?
+    def on_kinesis_retry(error); end
+    def on_kinesis_failure(error); end
 
     protected
 
+    # FIXME: implement retries
     def put_records(items)
       client.put_records(
         stream: stream,
