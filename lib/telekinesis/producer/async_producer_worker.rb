@@ -41,8 +41,11 @@ module Telekinesis
         break if @shutdown
       end
     rescue => e
-      Telekinesis.logger.error("Producer background thread died!")
-      Telekinesis.logger.error(e)
+      # TODO: is there a way to encourage people to set up an uncaught exception
+      # hanlder and/or disable this?
+      bt = e.backtrace ? e.backtrace.map{|l| "!  #{l}"}.join("\n") : ""
+      warn "Producer background thread died!"
+      warn "#{e.class}: #{e.message}\n#{bt}"
       raise e
     end
 
@@ -72,21 +75,21 @@ module Telekinesis
     def put_records(items, retries = 5, retry_interval = 1.0)
       request = build_request(items)
       begin
+        # TODO: callback for stats call?
         response = Telekinesis.stats.time("kinesis.put_records.time.#{@stream}") do
           @client.put_records(request)
         end
         if response.failed_record_count > 0
-          @producer.on_failure(zip_with_error_code_and_message(items, response.records))
+          @producer.on_record_failure(zip_with_error_code_and_message(items, response.records))
         end
       rescue => e
-        Telekinesis.logger.debug("Error sending data to Kinesis (#{retries} retries remaining)")
-        Telekinesis.logger.debug(e)
         if (retries -= 1) > 0
           sleep retry_interval
+          @producer.on_kinesis_retry(e)
           retry
+        else
+          @producer.on_kinesis_failure(e)
         end
-        Telekinesis.logger.error("PutRecords request to Kinesis failed after #{retries} retries")
-        Telekinesis.logger.error(e)
       end
     end
 

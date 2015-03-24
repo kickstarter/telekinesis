@@ -78,10 +78,6 @@ module Telekinesis
       end
     end
 
-    def on_failure(failures)
-      Telekinesis.logger.error("put_records returned #{failures.size} failures")
-    end
-
     def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
       # NOTE: Since a write_lock is exclusive, this prevents any data from being
       # added to the queue while the SHUTDOWN tokens are being inserted. Without
@@ -108,6 +104,15 @@ module Telekinesis
     def queue_size
       @queue.size
     end
+
+    # Callbacks. These all default to noops.
+    #
+    # Callbacks are all called from background worker threads when that worker
+    # encounters a failure. These callbacks must all be thread-safe.
+
+    def on_record_failure(failed_records); end
+    def on_kinesis_retry(error); end
+    def on_kinesis_failure(error); end
 
     protected
 
