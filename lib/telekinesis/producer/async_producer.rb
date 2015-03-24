@@ -20,20 +20,26 @@ module Telekinesis
       @client = client
       @shutdown = false
 
-      queue_size   = options[:queue_size] || 1000
-      send_every   = options[:send_every_ms] || 1000
-      worker_count = options[:worker_count] || 3
-      send_size    = options[:send_size] || MAX_PUT_RECORDS_SIZE
+      queue_size   = options.fetch(:queue_size, 1000)
+      send_every   = options.fetch(:send_every_ms, 1000)
+      worker_count = options.fetch(:worker_count, 3)
+      send_size    = options.fetch(:send_size, MAX_PUT_RECORDS_SIZE)
       raise ArgumentError("buffer_size too large") if send_size > MAX_PUT_RECORDS_SIZE
 
-      @queue = ArrayBlockingQueue.new(queue_size)
+      # NOTE: Primarily for testing.
+      @queue = options[:queue] || ArrayBlockingQueue.new(queue_size)
+
       @lock = Util::ReadWriteLock.new
-      # Create workers outside of pool.submit so that the handler can keep
-      # a reference to each worker for calls to flush and shutdown.
       @worker_pool = build_executor(worker_count)
       @workers = worker_count.times.map do
         AsyncProducerWorker.new(self, @queue, send_size, send_every)
       end
+
+      # NOTE: Primarily for testing. Start by default.
+      start unless options.fetch(:manual_start, true)
+    end
+
+    def start
       @workers.each do |w|
         @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w)
       end
@@ -44,6 +50,8 @@ module Telekinesis
       # the shutdown flag has been set. See the note in shutdown for details.
       # NOTE: Since this is a read lock, multiple threads can `put` data at the
       # same time without blocking on each other.
+      # TODO: is there a try_read_lock? the only time this blocks is if the
+      # producer is shutting down.
       @lock.read_lock do
         if @shutdown
           false
