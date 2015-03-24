@@ -12,12 +12,14 @@ module Telekinesis
     #
     # # In a reader thread
     # lock.read_lock do
-    #  # Read some data! This won't block any other calls to read_lock
+    #  # Read some data! This won't block any other calls to read_lock, but will
+    #  # block if another thread is in a section guarded by write_lock.
     # end
     #
     # # In a writer thread
     # lock.write_lock do
-    #   # Write some data! This is exclusive with any other call to this lock.
+    #   # Write some data! This is exclusive with *any* other code guarded by
+    #   # either read_lock or write_lock.
     # end
     class ReadWriteLock
       def initialize(fair = false)
