@@ -9,10 +9,8 @@ java_import com.google.common.util.concurrent.ThreadFactoryBuilder
 module Telekinesis
   module Producer
     class AsyncProducer
-      # NOTE: This isn't configurable right now because it's a Kinesis API limit.
-      # TODO: Set an option to lower this.
-      # FIXME: Move this into KinesisUtils or something. Used in two places.
-      MAX_PUT_RECORDS_SIZE = 500
+      # For convenience
+      MAX_PUT_RECORDS_SIZE = Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE
 
       attr_reader :stream, :client
 

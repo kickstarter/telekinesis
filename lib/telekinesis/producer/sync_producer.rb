@@ -1,14 +1,12 @@
 module Telekinesis
   module Producer
     class SyncProducer
-      # FIXME: Move this into KinesisUtils or something. Used in two places.
-      MAX_BUFFER_SIZE = 500
-
       attr_reader :stream, :client
 
-      def initialize(stream, client)
+      def initialize(stream, client, opts = {})
         @stream = stream
         @client = client
+        @max_batch_size = opts.fetch(:max_batch_size, Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE)
       end
 
       def put(key, data)
@@ -16,7 +14,7 @@ module Telekinesis
       end
 
       def put_all(items)
-        items.each_slice(MAX_BUFFER_SIZE).each do |batch|
+        items.each_slice(@max_batch_size).each do |batch|
           failures = put_records(batch).flat_map do |page|
             page.records.reject{|r| r.error_code.nil?}
           end
