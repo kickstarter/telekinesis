@@ -1,12 +1,11 @@
 module Telekinesis
   module Aws
     class ClientAdapter
-      def self.build(stream, client)
+      def self.build(credentials)
         raise NotImplementedError
       end
 
-      def initialize(stream, client)
-        @stream = stream
+      def initialize(client)
         @client = client
       end
 
@@ -14,8 +13,8 @@ module Telekinesis
         raise NotImplementedError
       end
 
-      def put_records(items)
-        response = do_put_records(items)
+      def put_records(stream, items)
+        response = do_put_records(stream, items)
         failures = items.zip(response).reject{|_, r| r.error_code.nil?}
 
         failures.map do |(k, v), r|

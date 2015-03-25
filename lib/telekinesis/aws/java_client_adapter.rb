@@ -6,7 +6,7 @@ module Telekinesis
     java_import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry
 
     class JavaClientAdapter < ClientAdapter
-      def self.build(stream, credentials)
+      def self.build(credentials)
         provider = if credentials.empty?
           DefaultAWSCredentialsProviderChain.new
         else
@@ -18,10 +18,10 @@ module Telekinesis
           )
         end
         client = AmazonKinesisClient.new(provider)
-        new(stream, client)
+        new(client)
       end
 
-      def put_record(key, value)
+      def put_record(stream, key, value)
         r = PutRecordRequest.new.tap do |request|
           request.stream_name = @stream
           request.partition_key = key
@@ -32,11 +32,11 @@ module Telekinesis
 
       protected
 
-      def do_put_records(items)
-        @client.put_records(build_put_records_request(items))
+      def do_put_records(stream, items)
+        @client.put_records(build_put_records_request(stream, items))
       end
 
-      def build_put_records_request(items)
+      def build_put_records_request(stream, items)
         entries = items.map do |key, data|
           PutRecordsRequestEntry.new.tap do |entry|
             entry.partition_key = key
@@ -44,7 +44,7 @@ module Telekinesis
           end
         end
         PutRecordsRequest.new.tap do |request|
-          request.stream_name = @stream
+          request.stream_name = stream
           request.records = entries
         end
       end
