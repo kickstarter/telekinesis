@@ -74,13 +74,9 @@ module Telekinesis
       end
 
       def put_records(items, retries = 5, retry_interval = 1.0)
-        request = build_request(items)
         begin
-          # TODO: stats for this call
-          response = @client.put_records(request)
-          if response.failed_record_count > 0
-            @producer.on_record_failure(zip_with_error_code_and_message(items, response.records))
-          end
+          failures = @client.put_records(@stream, items)
+          @producer.on_record_failure(failures) unless failures.empty?
         rescue => e
           if (retries -= 1) > 0
             sleep retry_interval
@@ -89,24 +85,6 @@ module Telekinesis
           else
             @producer.on_kinesis_failure(e)
           end
-        end
-      end
-
-      def build_request(items)
-        PutRecordsRequest.new.tap do |request|
-          request.stream_name = @stream
-          request.records = items.map do |key, data|
-            PutRecordsRequestEntry.new.tap do |entry|
-              entry.partition_key = key
-              entry.data = ByteBuffer.wrap(data.to_java_bytes)
-            end
-          end
-        end
-      end
-
-      def zip_with_error_code_and_message(items, records)
-        items.zip(records).reject{|_, r| r.error_code.nil?}.map do |(k, v), r|
-          [k, v, r.error_code, r.error_message]
         end
       end
     end
