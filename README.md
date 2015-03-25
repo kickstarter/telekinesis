@@ -1,17 +1,18 @@
 # Telekinesis
 
-Telekinesis is a high-level JRuby client for Amazon Kinesis that wraps the [AWS
-Java SDK](http://aws.amazon.com/sdk-for-java/) and the [Kinesis Client
-Library](https://github.com/awslabs/amazon-kinesis-client).
+Telekinesis is a high-level client for Amazon Kinesis.
 
-## Why?
+The library provides a high-level producer interface that makes it easy to put
+batches of data to Kinesis.
 
-TKTKTKTK
+When using JRuby, the library provides a high-throughput asynchronous producer
+and wraps the [Kinesis Client Library](https://github.com/awslabs/amazon-kinesis-client)
+to provide an easy interface for writing consumers.
 
 ## Requirements
 
-* Java 1.6 or higher.
-* JRuby 1.7.16
+Telekinesis runs on Ruby 1.9.3 or later. To get the full benefit of the JRuby
+clients, use JRuby 1.7.16 or later and Java 6 or later.
 
 If you want to build from source, you need to have Apache Maven installed.
 
@@ -21,143 +22,75 @@ If you want to build from source, you need to have Apache Maven installed.
 $ gem install telekinesis-*.gem
 ```
 
-## Credentials
+## Producers
 
-Telekinesis wraps the AWS Java SDK, so credentials are
-[`AWSCredentials`](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/AWSCredentials.html).
-This gives you the flexibility to use [explicit
-credentials](https://github.com/Widen/aws-sdk-for-java/blob/master/src/main/java/com/amazonaws/internal/StaticCredentialsProvider.java)
-or
-[IAM](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/AWSCredentialsProvider.html)
-at your discretion.
+Telekinesis includes two high-level
+[Producers](http://docs.aws.amazon.com/kinesis/latest/dev/amazon-kinesis-producers.html).
+Records are sent as `key`, `value` pairs. The key is used by Kinesis to
+partition your data into shards. Values must respect any Kinesis service
+[limits](http://docs.aws.amazon.com/kinesis/latest/dev/service-sizes-and-limits.html).
 
-## How does it all work?
+Both producers batch data to Kinesis using the PutRecords API. Batching
+increases throughput to Kinesis at the expense of latency by cutting down the
+number of API requests made to AWS.
 
-### Producers
+The `SyncProducer` forces the caller to explicitly batch data. Any batch larger
+than the PutRecords size limit is split into multiple requests.
 
-Telekinesis includes a high-level
-[Producer](http://docs.aws.amazon.com/kinesis/latest/dev/amazon-kinesis-producers.html)
-that sends data to Kinesis in batches. Batching increases throughput to Kinesis
-at the expense of latency by cutting down the number of API requests the client
-has to make to AWS.
+The `AsyncProducer` queues events interally and uses one or more background
+threads to send data to Kinesis. Data is sent when a batch reaches the Kinesis
+PutRecords limit or when the configured `:send_every` timeout is reached.
 
-The default Producer batches records in the background before sending data to
-Kinesis. A synchronous single-threaded client is also available if you're
-interested in managing your own threading model.
 
-The following example creates a Producer with the default batch serializer (see
-below), sends every line in `ARGF` to Kinesis, and then shuts down cleanly.
+Creating a producer should always be done through the `create` methods. A
+producer always generates data for a single stream.
 
 ```ruby
-producer = Telekinesis.producer(stream: "an-stream", creds: {type: "default"})
-
-ARGF.each_line do |line|
-  producer.put(line.chomp)
-end
-
-# Blocking shutdown (see below for details)
-producer.shutdown(true, 5)
+KINESIS = Telekinesis::Producer::SyncProducer.create(stream: 'my stream',
+                                                     credentials: {
+                                                      acess_key_id: 'foo',
+                                                      secret_access_key: 'bar'
+                                                     })
 ```
 
-Producers have three methods:
+If `:credentials` aren't explicitly passed, the producer will use either the
+`aws-sdk` gem or the default [AWS credentials chain](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/DefaultAWSCredentialsProviderChain.html).
 
-- The **`put(data)`** method sends the given data to Kinesis. Data is
-  serialized with the given serializer. Returns `true` if the producer accepted
-  the data, and `false` otherwise. Data may be an instance of any kind of data
-  that the configured serializer can handle.
-
-- The **`flush`** method forces any data buffered in the producer to be sent to
-  Kinesis immediately.
-
-- The **`shutdown(block = false, duration = nil, unit = nil)`** method stops
-  the producer from accepting any more data, sends any queued data to Kinesis,
-  and stops any background tasks it may be managing. Shutdown can optionally
-  block for a given period of time, in which case it returns the same value as
-  `await`.
-
-- The **`await(duration = 10, unit = TimeUnit::SECONDS)`** method waits for the
-  producer to shut down cleanly. Returns `false` if the worker timed out
-  without shutting down cleanly and `true` otherwise. `duration` must be an
-  integer and `unit` must be a `TimeUnit` value from `java.util.concurrent`. By
-  default, `unit` is `SECONDS`.
-
-### Batch Serializers
-
-Batch serializers are designed to create batches of data that are as [large as
-possible](http://docs.aws.amazon.com/kinesis/latest/dev/service-sizes-and-limits.html)
-before sending them to Kinesis. The current maximum batch size is 50 KB. Batch
-serializers are designed to *never* overshoot that limit.
-
-Batch serializers are built around the `BatchSerializer` interface.
+Putting a single record:
 
 ```ruby
-class BatchSerializer
-  def write(record)
-    raise NotImplementedError
+KINESIS.put_record(user.id, user.to_s)
+```
+
+Putting multiple records:
+
+```ruby
+KINESIS.put_records(users.map{|user| [user.id, user.to_s]})
+```
+
+The `AsyncProducer` has three callback hooks for failed Kinesis PUTs, Kinesis
+service retries, and Kinesis service errors.
+
+```ruby
+producer = Telekinesis::Producer::AsyncProducer.create(stream: 'my-stream') do
+  def on_record_failure(failures)
+    failures.each do |key, value, error_code, error_message|
+      SomeLogger.error(error_message)
+      save_failed_data(key, value)
+    end
   end
 
-  def flush
-    raise NotImplementedError
+  def on_kinesis_retry(error)
+    SomeLogger.warn("Call to Kinesis failed")
+    SomeLogger.warn(error)
   end
 
-  def read(bytes)
-    raise NotImplementedError
+  def on_kinesis_failure(error)
+    SomeLogger.error(error)
+    ExceptionTracker.notify(error)
   end
 end
 ```
-
-A serializer may accept any kind of data in the `write` method, but must return
-a `byte[]` (a Java array of `byte`) from both the `write` and `flush` methods.
-
-When the `write` method is called, the serializer is responsible for
-determining if the next batch of records is ready. The `write` method may
-return `nil` if there is no data available, or may return a `byte[]`.
-
-Batch serializers also implement a `read` method that takes a serialized
-`byte[]` payload and returns the data that was serialized into that batch.
-
-Two serializers are provided by the library:
-
-- The `GZIPStringSerializer` serializer accepts Strings and serializes them as
-  a sequence of GZIP compressed `length, byte[]` pairs. The `length` element is
-  a 4-byte big-endian int, and strings are converted to bytes (via their
-  current encoding) using JRuby's `to_java_bytes` method.
-
-- The `DelimitedStringSerializer` serializer accepts Strings and serializes
-  them using JRuby's `to_java_bytes` method. Strings have a specified delimiter
-  appended.
-
-### Async Producer
-
-The Async Producer is used by default. Accepted data is queued for processing,
-and handled by one of a number of background threads that each individually
-batch data and send it to Kinesis. The optimal number of workers to configure
-an Async Producer with depends entirely on your serializer, data rate, and
-latency requirements. We highly suggest testing.
-
-Configuring an Async Producer with a custom serializer is straightforward:
-
-```ruby
-producer = Telekinesis.producer(stream: "an-stream", creds: DefaultAWSCredentialsProviderChain.new) do
-  MyCustomSerializer.new(my_config_args)
-end
-```
-
-NOTE: Each background thread will obtain a batch serializer by calling the
-passed block. If your serializer is not thread safe (the included serializers
-are NOT thread safe!), each call to the block **must** return a new instance.
-
-TODO: More details on Async Producer configuration.
-
-### Sync Producer
-
-You can use a Sync Producer by passing `async: false` in the arguments to
-`Telekinesis.producer`. Sync Producers immediately pass data to their serializers
-as soon as the `put` method is called, and send data to the Kinesis API as soon
-as the serializer makes the next batch of data available.
-
-Sync Producers are **not** thread safe. If you're using a Sync Producer, you
-are responsible for managing your own threading model.
 
 ## Consumers
 
