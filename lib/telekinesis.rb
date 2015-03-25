@@ -1,4 +1,5 @@
 module Telekinesis; end
 
-require "telekines/producer"
+require "telekinesis/aws"
+require "telekinesis/producer"
 
