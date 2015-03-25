@@ -64,12 +64,12 @@ class AsyncProducerWorkerTest < Minitest::Test
   # across multiple threads. To simulate the worker timing out on a queue.poll
   # just add 'nil' to your list of items in the queue at the appropriate place.
   def queue_with(*items)
-    to_put = items + [Telekinesis::AsyncProducerWorker::SHUTDOWN]
+    to_put = items + [Telekinesis::Producer::AsyncProducerWorker::SHUTDOWN]
     StubQueue.new(to_put)
   end
 
   def build_worker
-    Telekinesis::AsyncProducerWorker.new(@producer, @queue, @send_size, @send_every)
+    Telekinesis::Producer::AsyncProducerWorker.new(@producer, @queue, @send_size, @send_every)
   end
 
   def records_as_kv_pairs(request)

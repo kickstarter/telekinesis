@@ -38,7 +38,7 @@ class AsyncProducerTest < Minitest::Test
     context "after shutdown" do
       setup do
         @queue = ArrayBlockingQueue.new(100)
-        @producer = Telekinesis::AsyncProducer.new('test', StubClient.new, {
+        @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
           queue: @queue,
           manual_start: true,
         })
@@ -47,7 +47,7 @@ class AsyncProducerTest < Minitest::Test
       end
 
       should "shutdown all workers" do
-        assert_equal([Telekinesis::AsyncProducerWorker::SHUTDOWN] * @worker_count,
+        assert_equal([Telekinesis::Producer::AsyncProducerWorker::SHUTDOWN] * @worker_count,
                      @queue.to_a)
       end
 
@@ -59,7 +59,7 @@ class AsyncProducerTest < Minitest::Test
     context "with a put in progress" do
       setup do
         @queue = LatchQueue.new
-        @producer = Telekinesis::AsyncProducer.new('test', StubClient.new, {
+        @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
           queue: @queue,
           manual_start: true,
         })
@@ -94,7 +94,7 @@ class AsyncProducerTest < Minitest::Test
     context "with a shutdown in progress" do
       setup do
         @queue = LatchQueue.new
-        @producer = Telekinesis::AsyncProducer.new('test', StubClient.new, {
+        @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
           queue: @queue,
           manual_start: true,
         })
