@@ -94,6 +94,6 @@ task :check_for_ext do
 end
 
 Rake::TestTask.new(:test => :check_for_ext) do |t|
-  t.test_files = FileList["test/test_*.rb"].exclude(/test_helper/)
+  t.test_files = FileList["test/**/test_*.rb"].exclude(/test_helper/)
   t.verbose = true
 end
