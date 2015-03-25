@@ -9,8 +9,16 @@ class AsyncProducerWorkerTest < Minitest::Test
   StubProducer = Struct.new(:stream, :client) do
     attr_reader :failures
 
-    def on_failure(failures)
-      @failures = failures
+    def on_record_failure(failed_records)
+      @failures = failed_records
+    end
+
+    def on_kinesis_retry(error)
+      $stderr.puts error
+    end
+
+    def on_kinesis_failure(error)
+      $stderr.puts error
     end
   end
 

@@ -1,4 +1,4 @@
-require "telekinesis/producer/util"
+require "telekinesis/util"
 require "telekinesis/producer/async_producer_worker"
 
 java_import java.util.concurrent.TimeUnit
@@ -16,8 +16,8 @@ module Telekinesis
     attr_reader :stream, :client
 
     def initialize(stream, client, options = {})
-      @stream = stream
-      @client = client
+      @stream = stream or raise ArgumentError, "stream may not be nil"
+      @client = client or raise ArgumentError, "client may not be nil"
       @shutdown = false
 
       queue_size   = options.fetch(:queue_size, 1000)

@@ -75,10 +75,8 @@ module Telekinesis
     def put_records(items, retries = 5, retry_interval = 1.0)
       request = build_request(items)
       begin
-        # TODO: callback for stats call?
-        response = Telekinesis.stats.time("kinesis.put_records.time.#{@stream}") do
-          @client.put_records(request)
-        end
+        # TODO: stats for this call
+        response = @client.put_records(request)
         if response.failed_record_count > 0
           @producer.on_record_failure(zip_with_error_code_and_message(items, response.records))
         end
