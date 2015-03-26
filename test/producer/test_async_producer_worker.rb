@@ -22,13 +22,6 @@ class AsyncProducerWorkerTest < Minitest::Test
     end
   end
 
-  StubResponse = Struct.new(:failed_record_count, :records)
-  StubResponseEntry = Struct.new(:error_code) do
-    def error_message
-      "potato"
-    end
-  end
-
   # NOTE: This stub mocks the behavior of timing out on poll once all of the
   # items have been drained from the internal list.
   class StubQueue
@@ -42,20 +35,20 @@ class AsyncProducerWorkerTest < Minitest::Test
   end
 
   class CapturingClient
-    attr_reader :results
+    attr_reader :requests
 
     def initialize(responses)
-      @results = ArrayBlockingQueue.new(1000)
+      @requests = ArrayBlockingQueue.new(1000)
       @responses = responses
     end
 
-    def put_records(request)
-      @results.put(request)
-      @responses.shift || StubResponse.new(0, [])
+    def put_records(stream, items)
+      @requests.put([stream, items])
+      @responses.shift || []
     end
   end
 
-  def stub_producer(stream, *responses)
+  def stub_producer(stream, responses = [])
     StubProducer.new(stream, CapturingClient.new(responses))
   end
 
@@ -106,9 +99,9 @@ class AsyncProducerWorkerTest < Minitest::Test
 
       should "put data before shutting down the worker" do
         Timeout.timeout(0.1){@worker.run}
-        request, = @producer.client.results.to_a
-        assert_equal(request.stream_name, 'test', "request should have the correct stream name")
-        assert_equal([["key", "value"]], records_as_kv_pairs(request), "Request payload should be kv pairs")
+        stream, items = @producer.client.requests.first
+        assert_equal(stream, 'test', "request should have the correct stream name")
+        assert_equal([["key", "value"]], items, "Request payload should be kv pairs")
       end
     end
 
@@ -124,10 +117,9 @@ class AsyncProducerWorkerTest < Minitest::Test
 
       should "send whatever is in the queue" do
         @worker.run
-        request, = @producer.client.results.to_a
-        assert(request, "should produce data")
-        assert_equal('test', request.stream_name, "request should have the correct stream name")
-        assert_equal(@items, records_as_kv_pairs(request), "Request payload should be kv pairs")
+        stream, items = @producer.client.requests.first
+        assert_equal('test', stream, "request should have the correct stream name")
+        assert_equal(items, @items, "Request payload should be kv pairs")
       end
     end
 
@@ -143,9 +135,9 @@ class AsyncProducerWorkerTest < Minitest::Test
 
       should "send one request" do
         Timeout.timeout(0.1){@worker.run}
-        request, = @producer.client.results.to_a
-        assert_equal('test', request.stream_name, "request should have the correct stream name")
-        assert_equal(@items, records_as_kv_pairs(request), "Request payload should be kv pairs")
+        stream, items = @producer.client.requests.first
+        assert_equal('test', stream, "request should have the correct stream name")
+        assert_equal(@items, items, "Request payload should be kv pairs")
       end
     end
 
@@ -161,13 +153,10 @@ class AsyncProducerWorkerTest < Minitest::Test
 
       should "send multiple requests of at most send_size" do
         Timeout.timeout(0.1){@worker.run}
-
-        requests = @producer.client.results.to_a.each
         expected = @items.each_slice(@send_size).to_a
-
-        expected.zip(requests) do |kv_pairs, request|
-          assert_equal('test', request.stream_name, "Request should have the correct stream name")
-          assert_equal(kv_pairs, records_as_kv_pairs(request), "Request payload should be kv pairs")
+        expected.zip(@producer.client.requests) do |kv_pairs, (stream, batch)|
+          assert_equal('test', stream, "Request should have the correct stream name")
+          assert_equal(batch, kv_pairs, "Request payload should be kv pairs")
         end
       end
     end
@@ -176,25 +165,24 @@ class AsyncProducerWorkerTest < Minitest::Test
       setup do
         num_items = @send_size - 1
         @items = num_items.times.map{|i| ["key-#{i}", "value-#{i}"]}
-        @response_entries = num_items.times.map do |i|
-          if i.even?
-            StubResponseEntry.new("code-#{i}")
+        @failed_items = @items.each_with_index.map do |item, idx|
+          if idx.even?
+            k, v = item
+            [k, v, "code", "message"]
           else
-            StubResponseEntry.new
+            nil
           end
         end
-        @expected_failures = @items.zip(@response_entries)
-                                   .reject{|_, entry| entry.error_code.nil?}
-                                   .map{|item, _| item}
+        @failed_items.compact!
 
-        @producer = stub_producer('test', StubResponse.new(@response_entries.size, @response_entries))
+        @producer = stub_producer('test', [@failed_items])
         @queue = queue_with(*@items)
         @worker = build_worker
       end
 
       should "call the producer with all failed records" do
         @worker.run
-        assert_equal(@expected_failures, @producer.failures.map{|k, v, _, _| [k, v]})
+        assert_equal(@failed_items, @producer.failures)
       end
     end
 
