@@ -7,7 +7,7 @@ require "telekinesis/aws/client_adapter.rb"
 
 module Telekinesis
   module Aws
-    Client = if RUBY_PLATFORM.match(/java/)
+    Client = if java?
       require "telekinesis/aws/java_client_adapter"
       JavaClientAdapter
     else

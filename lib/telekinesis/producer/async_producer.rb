@@ -1,4 +1,3 @@
-require "telekinesis/util"
 require "telekinesis/producer/async_producer_worker"
 
 java_import java.util.concurrent.TimeUnit
@@ -35,7 +34,7 @@ module Telekinesis
         # NOTE: Primarily for testing.
         @queue = options[:queue] || ArrayBlockingQueue.new(queue_size)
 
-        @lock = Util::ReadWriteLock.new
+        @lock = Telekinesis::JavaUtil::ReadWriteLock.new
         @worker_pool = build_executor(worker_count)
         @workers = worker_count.times.map do
           AsyncProducerWorker.new(self, @queue, send_size, send_every)

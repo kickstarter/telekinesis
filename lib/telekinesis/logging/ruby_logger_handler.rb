@@ -1,23 +1,7 @@
-require "logger"
-
-java_import java.util.logging.LogManager
-java_import java.util.logging.Level
-java_import java.util.logging.Handler
-
 module Telekinesis
   module Logging
-    def self.capture_java_logging(logger)
-      LogManager.log_manager.reset
-      jul_root_logger.add_handler(RubyLoggerHandler.new(logger))
-    end
-
-    def self.disable_java_logging
-      LogManager.log_manager.reset
-    end
-
-    def self.jul_root_logger
-      java.util.logging.Logger.get_logger("")
-    end
+    java_import java.util.logging.Level
+    java_import java.util.logging.Handler
 
     # A java logging Handler that delegates to a Ruby logger. The name of the
     # j.u.l. logger is used as the progname argument to Logger.add.
