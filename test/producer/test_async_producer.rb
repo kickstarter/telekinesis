@@ -39,6 +39,7 @@ class AsyncProducerTest < Minitest::Test
         @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
           queue: @queue,
           manual_start: true,
+          worker_count: @worker_count,
         })
 
         @producer.shutdown
@@ -60,6 +61,7 @@ class AsyncProducerTest < Minitest::Test
         @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
           queue: @queue,
           manual_start: true,
+          worker_count: @worker_count,
         })
 
         # Thread blocks waiting for the latch in LatchQueue. Don't do any other
@@ -95,6 +97,7 @@ class AsyncProducerTest < Minitest::Test
         @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
           queue: @queue,
           manual_start: true,
+          worker_count: @worker_count,
         })
 
         # Thread blocks waiting to insert :shutdown into the queue because of
