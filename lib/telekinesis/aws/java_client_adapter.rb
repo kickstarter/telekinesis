@@ -1,5 +1,6 @@
 module Telekinesis
   module Aws
+    java_import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
     java_import com.amazonaws.services.kinesis.AmazonKinesisClient
     java_import com.amazonaws.services.kinesis.model.PutRecordRequest
     java_import com.amazonaws.services.kinesis.model.PutRecordsRequest
@@ -33,7 +34,8 @@ module Telekinesis
       protected
 
       def do_put_records(stream, items)
-        @client.put_records(build_put_records_request(stream, items))
+        result = @client.put_records(build_put_records_request(stream, items))
+        result.records
       end
 
       def build_put_records_request(stream, items)
