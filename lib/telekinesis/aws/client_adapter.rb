@@ -18,7 +18,7 @@ module Telekinesis
         failures = items.zip(response).reject{|_, r| r.error_code.nil?}
 
         failures.map do |(k, v), r|
-          [k, v, r.error_code, error_message]
+          [k, v, r.error_code, r.error_message]
         end
       end
     end
