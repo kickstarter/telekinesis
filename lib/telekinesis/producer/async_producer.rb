@@ -27,7 +27,7 @@ module Telekinesis
 
         queue_size   = options.fetch(:queue_size, 1000)
         send_every   = options.fetch(:send_every_ms, 1000)
-        worker_count = options.fetch(:worker_count, 3)
+        worker_count = options.fetch(:worker_count, 1)
         raise ArgumentError(":worker_count must be > 0") unless worker_count > 0
         send_size    = options.fetch(:send_size, MAX_PUT_RECORDS_SIZE)
         raise ArgumentError(":send_size too large") if send_size > MAX_PUT_RECORDS_SIZE
