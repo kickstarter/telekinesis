@@ -42,7 +42,7 @@ module Telekinesis
         end
 
         # NOTE: Primarily for testing. Start by default.
-        start unless options.fetch(:manual_start, true)
+        start unless options.fetch(:manual_start, false)
       end
 
       def start
