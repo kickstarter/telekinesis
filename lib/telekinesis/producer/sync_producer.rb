@@ -12,16 +12,16 @@ module Telekinesis
       def initialize(stream, client, opts = {})
         @stream = stream or raise ArgumentError, "stream may not be nil"
         @client = client or raise ArgumentError, "client may not be nil"
-        @send_size = opts.fetch(:max_batch_size, Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE)
+        @send_size = opts.fetch(:send_size, Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE)
       end
 
       def put(key, data)
-        @client.put_record(data, key)
+        @client.put_record(@stream, key, data)
       end
 
       def put_all(items)
         items.each_slice(@send_size).each do |batch|
-          failures = @client.put_records(batch)
+          failures = @client.put_records(@stream, batch)
           on_record_failure(failures) unless failures.empty?
         end
       end

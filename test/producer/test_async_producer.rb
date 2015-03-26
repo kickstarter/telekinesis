@@ -1,7 +1,5 @@
 require_relative '../test_helper'
 
-require "telekinesis/producer/async_producer"
-
 java_import java.util.concurrent.CountDownLatch
 java_import java.util.concurrent.ArrayBlockingQueue
 
@@ -30,7 +28,7 @@ class AsyncProducerTest < Minitest::Test
     end
   end
 
-  context "async producer:" do
+  context "AsyncProducer" do
     setup do
       @worker_count = 3 #arbitrary
     end
