@@ -1,12 +1,12 @@
 require "telekinesis/producer/async_producer_worker"
 
-java_import java.util.concurrent.TimeUnit
-java_import java.util.concurrent.Executors
-java_import java.util.concurrent.ArrayBlockingQueue
-java_import com.google.common.util.concurrent.ThreadFactoryBuilder
-
 module Telekinesis
   module Producer
+    java_import java.util.concurrent.TimeUnit
+    java_import java.util.concurrent.Executors
+    java_import java.util.concurrent.ArrayBlockingQueue
+    java_import com.google.common.util.concurrent.ThreadFactoryBuilder
+
     class AsyncProducer
       # For convenience
       MAX_PUT_RECORDS_SIZE = Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE
