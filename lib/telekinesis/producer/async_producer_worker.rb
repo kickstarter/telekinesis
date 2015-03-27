@@ -78,7 +78,7 @@ module Telekinesis
         begin
           failures = @client.put_records(@stream, items)
           @failure_handler.on_record_failure(failures) unless failures.empty?
-        rescue => e
+        rescue Telekinesis::Aws::KinesisError => e
           if (retries -= 1) > 0
             sleep retry_interval
             @failure_handler.on_kinesis_retry(e, items)

@@ -15,14 +15,18 @@ module Telekinesis
 
       def put_record(stream, key, value)
         @client.put_record(stream: stream, partition_key: key, data: value)
+      rescue Aws::Errors::ServiceError => e
+        raise KinesisError.new(e)
       end
 
       protected
 
       def do_put_records(stream, items)
-        put_records(build_put_records_request(stream, items)).flat_map do |page|
+        @client.put_records(build_put_records_request(stream, items)).flat_map do |page|
           page.records
         end
+      rescue Aws::Errors::ServiceError => e
+        raise KinesisError.new(e)
       end
 
       def build_put_records_request(stream, items)

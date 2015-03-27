@@ -1,5 +1,14 @@
 module Telekinesis
   module Aws
+    # NOTE: wrapping the cause is necessary since JRuby isn't 2.1 compatible (yet)
+    class KinesisError < RuntimeError
+      attr_reader :cause
+
+      def initialize(cause)
+        @cause = cause
+      end
+    end
+
     # Base class for other ClientAdapters. Client adapters exist to make
     # switching between platforms easy and painless.
     #

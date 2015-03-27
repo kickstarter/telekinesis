@@ -1,5 +1,6 @@
 module Telekinesis
   module Aws
+    java_import com.amazonaws.AmazonClientException
     java_import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
     java_import com.amazonaws.services.kinesis.AmazonKinesisClient
     java_import com.amazonaws.services.kinesis.model.PutRecordRequest
@@ -40,6 +41,8 @@ module Telekinesis
           request.data = value
         end
         @client.put_record(r)
+      rescue AmazonClientException => e
+        raise KinesisError.new(e)
       end
 
       protected
@@ -47,6 +50,8 @@ module Telekinesis
       def do_put_records(stream, items)
         result = @client.put_records(build_put_records_request(stream, items))
         result.records
+      rescue AmazonClientException => e
+        raise KinesisError.new(e)
       end
 
       def build_put_records_request(stream, items)
