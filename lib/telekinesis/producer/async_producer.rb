@@ -23,6 +23,15 @@ module Telekinesis
       # passing a hash containing your `:access_key_id` and `:secret_access_key`.
       # If unspecified, credentials will be fetched from the environment, an
       # ~/.aws/credentials file, or the current instance metadata.
+      #
+      # The producer's `:worker_count`, internal `:queue_size`, the `:send_size`
+      # of batches to Kinesis and how often workers send data to Kinesis, even
+      # if their batches aren't full (`:send_every_ms`) can be configured as
+      # well. They all have reasonable defaults.
+      #
+      # When requests to Kinesis fail, the configured `:failure_handler` will
+      # be called. If you don't specify a failure handler, a NoopFailureHandler
+      # is used.
       def self.create(options = {})
         stream = options[:stream]
         client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
@@ -30,6 +39,7 @@ module Telekinesis
         new(stream, client, failure_handler, options)
       end
 
+      # NOTE: You should use #create unless you know what you're doing.
       def initialize(stream, client, failure_handler, options = {})
         @stream = stream or raise ArgumentError, "stream may not be nil"
         @client = client or raise ArgumentError, "client may not be nil"
@@ -43,7 +53,7 @@ module Telekinesis
         send_size    = options.fetch(:send_size, MAX_PUT_RECORDS_SIZE)
         raise ArgumentError(":send_size too large") if send_size > MAX_PUT_RECORDS_SIZE
 
-        # NOTE: Primarily for testing.
+        # NOTE: For testing.
         @queue = options[:queue] || ArrayBlockingQueue.new(queue_size)
 
         @lock = Telekinesis::JavaUtil::ReadWriteLock.new
@@ -52,7 +62,7 @@ module Telekinesis
           AsyncProducerWorker.new(self, @queue, send_size, send_every)
         end
 
-        # NOTE: Primarily for testing. Start by default.
+        # NOTE: Start by default. For testing.
         start unless options.fetch(:manual_start, false)
       end
 
