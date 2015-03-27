@@ -6,8 +6,16 @@ module Telekinesis
     java_import com.amazonaws.services.kinesis.model.PutRecordsRequest
     java_import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry
 
+    # A ClientAdapter that wraps the AWS Java SDK.
+    #
+    # Since the underlying Java client is thread safe, this adapter is thread
+    # safe.
     class JavaClientAdapter < ClientAdapter
-      def self.build(credentials)
+      # Build a new client adapter. `credentials` is a hash keyed with
+      # `:access_key_id` and `:secret_access_key`. If this hash is left blank
+      # (the default) the client uses the DefaultAWSCredentialsProviderChain to
+      # look for credentials.
+      def self.build(credentials = {})
         client = AmazonKinesisClient.new(build_credentials_provider(credentials))
         new(client)
       end
