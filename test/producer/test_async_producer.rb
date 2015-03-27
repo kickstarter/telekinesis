@@ -1,9 +1,9 @@
-require_relative '../test_helper'
-
-java_import java.util.concurrent.CountDownLatch
-java_import java.util.concurrent.ArrayBlockingQueue
+require_relative "test_helper"
 
 class AsyncProducerTest < Minitest::Test
+  java_import java.util.concurrent.CountDownLatch
+  java_import java.util.concurrent.ArrayBlockingQueue
+
   StubClient = Struct.new(:welp)
 
   class LatchQueue

@@ -1,11 +1,13 @@
-require_relative '../test_helper'
-
-require "telekinesis/producer/async_producer_worker"
-
-java_import java.util.concurrent.TimeUnit
-java_import java.util.concurrent.ArrayBlockingQueue
+require_relative "test_helper"
 
 class AsyncProducerWorkerTest < Minitest::Test
+  java_import java.util.concurrent.TimeUnit
+  java_import java.util.concurrent.ArrayBlockingQueue
+
+  def string_from_bytebuffer(bb)
+    String.from_java_bytes bb.array
+  end
+
   StubProducer = Struct.new(:stream, :client) do
     attr_reader :failures
 
