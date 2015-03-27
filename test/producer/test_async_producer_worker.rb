@@ -9,6 +9,12 @@ class AsyncProducerWorkerTest < Minitest::Test
   end
 
   class CapturingFailureHandler
+    attr_reader :retries, :final_err
+
+    def initialize
+      @retries = 0
+    end
+
     def failed_records
       @failed_records ||= []
     end
@@ -17,8 +23,13 @@ class AsyncProducerWorkerTest < Minitest::Test
       failed_records << fails
     end
 
-    def on_kinesis_retry(error, items); end
-    def on_kinesis_error(error, items); end
+    def on_kinesis_retry(error, items)
+      @retries += 1
+    end
+
+    def on_kinesis_failure(error, items)
+      @final_err = [error, items]
+    end
   end
 
   StubProducer = Struct.new(:stream, :client, :failure_handler)
@@ -49,6 +60,16 @@ class AsyncProducerWorkerTest < Minitest::Test
     end
   end
 
+  class ExplodingClient
+    def initialize(exception)
+      @exception = exception
+    end
+
+    def put_records(stream, items)
+      raise @exception
+    end
+  end
+
   def stub_producer(stream, responses = [])
     StubProducer.new(stream, CapturingClient.new(responses), CapturingFailureHandler.new)
   end
@@ -63,7 +84,14 @@ class AsyncProducerWorkerTest < Minitest::Test
   end
 
   def build_worker
-    Telekinesis::Producer::AsyncProducerWorker.new(@producer, @queue, @send_size, @send_every)
+    Telekinesis::Producer::AsyncProducerWorker.new(
+      @producer,
+      @queue,
+      @send_size,
+      @send_every,
+      @retries,
+      @retry_interval
+    )
   end
 
   def records_as_kv_pairs(request)
@@ -74,6 +102,8 @@ class AsyncProducerWorkerTest < Minitest::Test
     setup do
       @send_size = 10
       @send_every = 100 # ms
+      @retries = 2
+      @retry_interval = 0.01
     end
 
     context "with only SHUTDOWN in the queue" do
@@ -187,6 +217,25 @@ class AsyncProducerWorkerTest < Minitest::Test
       end
     end
 
-    # TODO: test for AWS client exceptions
+    context "when the client throws an exception" do
+      setup do
+        @boom = Telekinesis::Aws::KinesisError.new(com.amazonaws.AmazonClientException.new("boom"))
+        @producer = StubProducer.new(
+          'stream',
+          ExplodingClient.new(@boom),
+          CapturingFailureHandler.new
+        )
+        @queue = queue_with(['foo', 'bar'])
+        @worker = build_worker
+      end
+
+      should "call the failure handler on retries and errors" do
+        @worker.run
+        assert_equal((@retries - 1), @producer.failure_handler.retries)
+        err, items = @producer.failure_handler.final_err
+        assert_equal(@boom, err)
+        assert_equal([['foo', 'bar']], items)
+      end
+    end
   end
 end

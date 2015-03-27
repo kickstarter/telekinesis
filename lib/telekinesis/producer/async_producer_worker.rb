@@ -8,11 +8,13 @@ module Telekinesis
     class AsyncProducerWorker
       SHUTDOWN = :shutdown
 
-      def initialize(producer, queue, send_size, send_every)
+      def initialize(producer, queue, send_size, send_every, retries, retry_interval)
         @producer = producer
         @queue = queue
         @send_size = send_size
         @send_every = send_every
+        @retries = retries
+        @retry_interval = retry_interval
 
         @stream = producer.stream                   # for convenience
         @client = producer.client                   # for convenience
@@ -37,7 +39,7 @@ module Telekinesis
           end
 
           if buffer_full || (next_item.nil? && buffer_has_records)
-            put_records(get_and_reset_buffer)
+            put_records(get_and_reset_buffer, @retries, @retry_interval)
           end
 
           break if @shutdown
@@ -74,7 +76,7 @@ module Telekinesis
         ret
       end
 
-      def put_records(items, retries = 5, retry_interval = 1.0)
+      def put_records(items, retries, retry_interval)
         begin
           failures = @client.put_records(@stream, items)
           @failure_handler.on_record_failure(failures) unless failures.empty?

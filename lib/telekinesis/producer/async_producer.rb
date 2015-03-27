@@ -46,12 +46,16 @@ module Telekinesis
         @failure_handler = failure_handler or raise ArgumentError, "failure_handler may not be nil"
         @shutdown = false
 
-        queue_size   = options.fetch(:queue_size, 1000)
-        send_every   = options.fetch(:send_every_ms, 1000)
-        worker_count = options.fetch(:worker_count, 1)
+        queue_size     = options.fetch(:queue_size, 1000)
+        send_every     = options.fetch(:send_every_ms, 1000)
+        worker_count   = options.fetch(:worker_count, 1)
         raise ArgumentError(":worker_count must be > 0") unless worker_count > 0
-        send_size    = options.fetch(:send_size, MAX_PUT_RECORDS_SIZE)
+        send_size      = options.fetch(:send_size, MAX_PUT_RECORDS_SIZE)
         raise ArgumentError(":send_size too large") if send_size > MAX_PUT_RECORDS_SIZE
+        retries        = options.fetch(:retries, 5)
+        raise ArgumentError(":retries must be >= 0") unless retries >= 0
+        retry_interval = options.fetch(:retry_interval, 1.0)
+        raise ArgumentError(":retry_interval must be > 0") unless retry_interval > 0
 
         # NOTE: For testing.
         @queue = options[:queue] || ArrayBlockingQueue.new(queue_size)
@@ -59,7 +63,7 @@ module Telekinesis
         @lock = Telekinesis::JavaUtil::ReadWriteLock.new
         @worker_pool = build_executor(worker_count)
         @workers = worker_count.times.map do
-          AsyncProducerWorker.new(self, @queue, send_size, send_every)
+          AsyncProducerWorker.new(self, @queue, send_size, send_every, retries, retry_interval)
         end
 
         # NOTE: Start by default. For testing.
