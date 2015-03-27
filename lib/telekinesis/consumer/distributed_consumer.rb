@@ -1,5 +1,8 @@
 module Telekinesis
   module Consumer
+    java_import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionInStream
+    java_import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
+
     class DistributedConsumer
       # Create a new consumer that consumes data from a Kinesis stream.
       # DistributedConsumers use DynamoDB to register as part of the same
