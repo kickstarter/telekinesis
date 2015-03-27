@@ -33,6 +33,39 @@ class AsyncProducerTest < Minitest::Test
       @worker_count = 3 #arbitrary
     end
 
+    context "put" do
+      setup do
+        @queue = ArrayBlockingQueue.new(100)
+        producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
+          queue: @queue,
+          manual_start: true,
+          worker_count: @worker_count,
+        })
+        producer.put("hi", "there")
+      end
+
+      should "add the k,v pair to the queue" do
+        assert_equal([["hi", "there"]], @queue.to_a)
+      end
+    end
+
+    context "put_all" do
+      setup do
+        @items = 10.times.map{|i| ["key-#{i}", "value-#{i}"]}
+        @queue = ArrayBlockingQueue.new(100)
+        producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
+          queue: @queue,
+          manual_start: true,
+          worker_count: @worker_count,
+        })
+        producer.put_all(@items)
+      end
+
+      should "add all items to the queue" do
+        assert_equal(@items, @queue.to_a)
+      end
+    end
+
     context "after shutdown" do
       setup do
         @queue = ArrayBlockingQueue.new(100)
