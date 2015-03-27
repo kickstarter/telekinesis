@@ -11,22 +11,52 @@ module Telekinesis
       #
       # http://docs.aws.amazon.com/kinesis/latest/dev/developing-consumer-apps-with-kcl.html
       #
-      # KclWorkers are configured with a hash. The Kinesis `:stream` is required
-      # as is the `:app` that the worker is a part of. The `:worker_id` (which
-      # is used to distinguish individual clients from one another) may also be
-      # explicitly specified - it defaults to the current hostname, so if you
-      # plan to run multiple workers on the same host, make sure to explicitly
-      # set this.
+      # DistributedConsumers are configured with a hash. The Kinesis `:stream`
+      # to consume from is required.
+      #
+      # DistribtuedConsumers operate in groups. All consumers with the same
+      # `:app` id use dynamo to attempt to distribute work evenly among
+      # themselves. The `:worker_id` is used to distinguish individual clients
+      # (`:worker_id` defaults to the current hostname. If you plan to run more
+      # than one DistributedConsumer in the same `:app` per host, make sure you
+      # set this to something unique!).
       #
       # Any other valid KCL Worker `:options` may be passed as a hash.
       #
-      # For example, to configure a `tail` app on `some-stream`:
+      # For example, to configure a `tail` app on `some-stream` and use the
+      # default `:worker_id`, you might pass the following configuration to your
+      # DistributedConsumer.
       #
-      #     {
-      #       stream: 'interesting-data',
-      #       app: 'my-tailer',
+      #     config = {
+      #       app: 'tail',
+      #       stream: 'some-stream',
       #       options: {initial_position_in_stream: 'TRIM_HORIZON'}
       #     }
+      #
+      # To actually process the stream, a DistribtuedConsumer creates
+      # record processors. These are objects that correspond to the KCL's
+      # RecordProcessor interface - processors must implement `init`,
+      # `process_records`, and `shutdown` methods.
+      #
+      # http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java
+      #
+      # To specify which record processor to create, pass a block to your
+      # distribtued consumer that returns a new record processor. This block
+      # may (nay, WILL) be called from a background thread so make sure that
+      # it's thread-safe.
+      #
+      # Telekinesis provides a BaseProcessor that implements no-op versions
+      # of all of the required methods to make writing quick processors easier
+      # and a Block processor that executes the specified block every time
+      # `process_records` is called.
+      #
+      # To write a stream tailer, you might use Block as follows:
+      #
+      #     Telekinesis::Consumer::DistributedConsumer.new(config) do
+      #       Telekinesis::Consumer::Block do |records, _|
+      #         records.each {|r| puts r}
+      #       end
+      #     end
       #
       def initialize(config, &block)
         raise ArgumentError, "No block given!" unless block_given?
