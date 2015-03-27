@@ -8,7 +8,12 @@ module Telekinesis
 
     class JavaClientAdapter < ClientAdapter
       def self.build(credentials)
-        provider = if credentials.empty?
+        client = AmazonKinesisClient.new(build_credentials_provider(credentials))
+        new(client)
+      end
+
+      def self.build_credentials_provider(credentials)
+        if credentials.empty?
           DefaultAWSCredentialsProviderChain.new
         else
           StaticCredentialsProvider.new(
@@ -18,8 +23,6 @@ module Telekinesis
             )
           )
         end
-        client = AmazonKinesisClient.new(provider)
-        new(client)
       end
 
       def put_record(stream, key, value)
