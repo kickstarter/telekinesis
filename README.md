@@ -139,11 +139,14 @@ producer = Telekinesis::Producer::AsyncProducer.create(
 
 The DistributedConsumer is a wrapper around Amazon's [Kinesis Client Library
 (KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
-Each DistributedConsumer is part of a group of consumers (an "application") that
-runs on one or more machines. Each consumer gets labelled with a unique id (more
-on that later) and attempts to distribute work evenly between all consumers
-that are part of the same application. The KCL uses DynamoDB to do all of this
-coordination and work sharing.
+Each DistributedConsumer is part of a group of consumers (an "application")
+that runs on one or more machines. Each consumer gets labelled with a unique id
+(more on that later) and attempts to distribute work evenly between all
+consumers that are part of the same application. Each consumer can checkpoint
+its progress per-shard, and if passes that shard off for any reason, the new
+clients handling each shard will pick up at the last available checkpoint. The
+KCL uses DynamoDB to do all of this coordination, work sharing, and
+checkpointing.
 
 To actually get at the data you're consuming with this client, create a [record
 processor](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java).
@@ -193,6 +196,47 @@ Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'exam
   end
 end
 ```
+
+#### Errors while processing records
+
+The KCL basically punts on any errors that might happen in `process_records`,
+and `DistributedConsumer` doesn't do anything fancy to work around this.
+
+> The KCL relies on processRecords to handle any exceptions that arise from
+> processing the data records. If an exception is thrown from processRecords,
+> the KCL skips over the data records that were passed prior to the exception;
+> that is, these records are not re-sent to the record processor that threw the
+> exception or to any other record processor in the application.
+
+The moral of the story is that you should be absolutely sure you catch any
+exceptions that get thrown in your `process_records` implementation. If you
+don't, you can (silently) drop data on the floor.
+
+If something terrible happens and you can't attempt to re-read the list of
+records and re-do whatever work you needed to do in process records, we've been
+advised by the Kinesis team that killing the entire JVM that's running the
+worker is the safest thing to do. On restart, the consumer (or another consumer
+in the application group) will pick up the orphaned shards and attempt to
+restart from the last available checkpoint.
+
+#### Checkpoints and `INITIAL_POSITION_IN_STREAM`
+
+The second object passed to `process_records` is a checkpointer. This can be
+used to checkpoint all records that have been passed to the processor so far
+(by just calling `checkpointer.checkpoint`) or up to a particular sequence
+number (by calling `checkpointer.checkpoint(record.sequence_number)`).
+
+While a DistributedConsumer can be initialized with an
+`:initial_position_in_stream` option, any existing checkpoint for a shard will
+take precedent over that value. Furthermore, any existing STATE in DynamoDB will
+take precedent, so if you start a consumer with `initial_position_in_stream: 'LATEST'`
+and then restart with `initial_position_in_stream: 'TRIM_HORIZON'` you still end
+up starting from `LATEST`.
+
+Each KCL Application gets its own DynamoDB table that stores all of this state.
+The `:application` name is used as the DynamoDB table name, so beware of
+namespace collisions if you use DynamoDB on its own. Altering or reseting any
+of this state involves manually altering the application's Dynamo table.
 
 ## Java client logging
 
