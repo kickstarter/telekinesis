@@ -1,3 +1,5 @@
+require "telekinesis"
+
 module Telekinesis
   module Producer; end
 end

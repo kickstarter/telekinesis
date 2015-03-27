@@ -14,6 +14,5 @@ if java?
 end
 
 require "telekinesis/aws"
-require "telekinesis/producer"
 
 
