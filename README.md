@@ -2,95 +2,134 @@
 
 Telekinesis is a high-level client for Amazon Kinesis.
 
-The library provides a high-level producer interface that makes it easy to put
-batches of data to Kinesis.
-
-When using JRuby, the library provides a high-throughput asynchronous producer
-and wraps the [Kinesis Client Library](https://github.com/awslabs/amazon-kinesis-client)
-to provide an easy interface for writing consumers.
+The library provides a high-throughput asynchronous producer and wraps the
+[Kinesis Client Library](https://github.com/awslabs/amazon-kinesis-client) to
+provide an easy interface for writing consumers.
 
 ## Requirements
 
-Telekinesis runs on Ruby 1.9.3 or later. To get the full benefit of the JRuby
-clients, use JRuby 1.7.16 or later and Java 6 or later.
+Telekinesis runs on JRuby 1.7.x or later, with at least Java 6. A minimal set
+of producer functionality is available on MRI 1.9.3 or later.
 
 If you want to build from source, you need to have Apache Maven installed.
 
 ## Installing
 
 ```
-$ gem install telekinesis-*.gem
+gem install telekinesis
 ```
 
 ## Producers
 
 Telekinesis includes two high-level
 [Producers](http://docs.aws.amazon.com/kinesis/latest/dev/amazon-kinesis-producers.html).
-Records are sent as `key`, `value` pairs. The key is used by Kinesis to
-partition your data into shards. Values must respect any Kinesis service
-[limits](http://docs.aws.amazon.com/kinesis/latest/dev/service-sizes-and-limits.html).
+Records are sent as `key`, `value` pairs of Strings. The key is used by Kinesis
+to partition your data into shards. Both keys and values must respect any
+Kinesis service [limits](http://docs.aws.amazon.com/kinesis/latest/dev/service-sizes-and-limits.html).
 
 Both producers batch data to Kinesis using the PutRecords API. Batching
 increases throughput to Kinesis at the expense of latency by cutting down the
 number of API requests made to AWS.
 
-The `SyncProducer` forces the caller to explicitly batch data. Any batch larger
-than the PutRecords size limit is split into multiple requests.
+### SyncProducer
 
-The `AsyncProducer` queues events interally and uses one or more background
-threads to send data to Kinesis. Data is sent when a batch reaches the Kinesis
-PutRecords limit or when the configured `:send_every` timeout is reached.
+The `SyncProducer` makes a call to Kinesis every time `put` or `put_records`
+is called. These calls block until the call to Kinesis returns.
 
-
-Creating a producer should always be done through the `create` methods. A
-producer always generates data for a single stream.
+Calls to `put` send a single record at a time to Kinesis, where calls to
+`put_records` send up to 500 records at a time (it's a Kinesis service limit).
+If more than 500 records are passed to `put_records` it groups them into batches
+of up to `:send_size` (which defaults to 500) records.
 
 ```ruby
-KINESIS = Telekinesis::Producer::SyncProducer.create(stream: 'my stream',
-                                                     credentials: {
-                                                      acess_key_id: 'foo',
-                                                      secret_access_key: 'bar'
-                                                     })
+producer = Telekinesis::Producer::SyncProducer.create(
+  stream: 'my stream',
+  send_size: 200,
+  credentials: {
+    acess_key_id: 'foo',
+    secret_access_key: 'bar'
+  }
+)
 ```
 
-If `:credentials` aren't explicitly passed, the producer will use either the
-`aws-sdk` gem or the default [AWS credentials chain](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/DefaultAWSCredentialsProviderChain.html).
-
-Putting a single record:
+Putting a single record is as easy as calling `put` and large batches of data
+can be sent with `put_all`. Any batch larger than the Kinesis limit of 500
+records per PutRecords call will be automatically split up into chunks of 500.
 
 ```ruby
-KINESIS.put_record(user.id, user.to_s)
+# file is a file containing CSV data that looks like:
+#
+#   "some,very,important,data,with,a,partition_key"
+#
+lines = file.each_line.map do |line|
+  key = line.split(/,/).last
+  data = line
+  [key, data]
+end
+
+# One record at a time
+lines.each do |key, data|
+  producer.put(key, data)
+end
+
+# Manually control your batches
+lines.each_slice(200) do |batch|
+  producer.put_all(batch)
+end
+
+# Go hog wild
+producer.put_all(lines.to_a)
 ```
 
-Putting multiple records:
+When something goes wrong and the Kinesis client throws an exception, it bubbles
+up as a `Telekinesis::Aws::KinesisError` with the underlying exception acessible
+as the `cause.
+
+When some of (but maybe not all of) the records passed to `put\_records` cause
+problems, they're returned as an array of
+`[key, value, error\_code, error\_message]` tuples.
+
+### AsyncProducer
+
+The `AsyncProducer` queues events interally and uses background threads to send
+data to Kinesis. The `AsyncProducer` always uses the `put_records` API call.
+Data is sent when a batch reaches the Kinesis PutRecords limit or when the
+configured `:send\_every\_ms` timeout is reached so that data doesn't
+accumulate in the producer and get stale.
+
+The API for the async producer is looks similar to the sync producer. However,
+all `put` and `put\_all` calls return immediately. Since sending (and therefore
+failure) happens out of band, you can provide an AsyncProducer with a failure
+handler that will be called whenver something bad happens.
 
 ```ruby
-KINESIS.put_records(users.map{|user| [user.id, user.to_s]})
-```
-
-The `AsyncProducer` has three callback hooks for failed Kinesis PUTs, Kinesis
-service retries, and Kinesis service errors.
-
-```ruby
-producer = Telekinesis::Producer::AsyncProducer.create(stream: 'my-stream') do
-  def on_record_failure(failures)
-    failures.each do |key, value, error_code, error_message|
-      SomeLogger.error(error_message)
-      save_failed_data(key, value)
+class MyFailureHandler
+  def on_record_failure(kv_pairs_and_errors)
+    items = kv_pairs_and_errors.map do |k, v, code, message|
+      log_error(code, message)
+      [k, v]
     end
+    re_enqueue(items)
   end
 
-  def on_kinesis_retry(error)
-    SomeLogger.warn("Call to Kinesis failed")
-    SomeLogger.warn(error)
-  end
-
-  def on_kinesis_failure(error)
-    SomeLogger.error(error)
-    ExceptionTracker.notify(error)
+  def on_kinesis_error(err, items)
+    log_exception(err)
+    re_enqueue(items)
   end
 end
+
+producer = Telekinesis::Producer::AsyncProducer.create(
+  stream: 'my stream',
+  failure_handler: MyFailureHandler.new,
+  send_every_ms: 1500,
+  credentials: {
+    acess_key_id: 'foo',
+    secret_access_key: 'bar'
+  }
+)
 ```
+
+> NOTE: The SyncProducer is available on platforms that aren't JRuby.
 
 ## Consumers
 
