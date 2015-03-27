@@ -1,17 +1,11 @@
 require "telekinesis"
 
 module Telekinesis
-  module Consumer; end
-end
-
-module Telekinesis
   module Consumer
-    Worker = if java?
-      require "telekinesis/consumer/kcl_worker"
-      KclWorker
+    if java?
+      require "telekinesis/consumer/distributed_consumer"
     else
-      require "telekinesis/consumer/platform_warning"
-      PlatformWarning
+      warn "There are no consumers available on your platform!"
     end
   end
 end

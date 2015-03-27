@@ -1,18 +1,29 @@
 module Telekinesis
   module Consumer
-    class KclWorker
-      # Create a new KCL Worker that consumes data from a Kinesis stream.
+    class DistributedConsumer
+      # Create a new consumer that consumes data from a Kinesis stream.
+      # DistributedConsumers use DynamoDB to register as part of the same
+      # application and evenly distribute work between them. See the
+      # AWS Docs for more information:
+      #
+      # http://docs.aws.amazon.com/kinesis/latest/dev/developing-consumer-apps-with-kcl.html
       #
       # KclWorkers are configured with a hash. The Kinesis `:stream` is required
-      # as is the `:app` that the worker will claim work as a part of. The
-      # `:worker_id` may also be explicitly specified - it defaults to the
-      # current hostname.
+      # as is the `:app` that the worker is a part of. The `:worker_id` (which
+      # is used to distinguish individual clients from one another) may also be
+      # explicitly specified - it defaults to the current hostname, so if you
+      # plan to run multiple workers on the same host, make sure to explicitly
+      # set this.
       #
-      # Any other valid KCL Worker `:options` may be passed as a nested hash.
-      # For example, to set the worker's initial position in the stream to the
-      # oldest existing record, pass
+      # Any other valid KCL Worker `:options` may be passed as a hash.
       #
-      #     `options: {initial_position_in_stream: 'TRIM_HORIZON'}`.
+      # For example, to configure a `tail` app on `some-stream`:
+      #
+      #     {
+      #       stream: 'interesting-data',
+      #       app: 'my-tailer',
+      #       options: {initial_position_in_stream: 'TRIM_HORIZON'}
+      #     }
       #
       def initialize(config, &block)
         raise ArgumentError, "No block given!" unless block_given?
