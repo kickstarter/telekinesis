@@ -7,12 +7,22 @@ module Telekinesis
     java_import java.util.concurrent.ArrayBlockingQueue
     java_import com.google.common.util.concurrent.ThreadFactoryBuilder
 
+    # An asynchronous producer that buffers events into a queue and uses a
+    # background thread to send them to Kinesis. Only available on JRuby.
+    #
+    # This class is thread-safe.
     class AsyncProducer
       # For convenience
       MAX_PUT_RECORDS_SIZE = Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE
 
       attr_reader :stream, :client
 
+      # Create a new producer.
+      #
+      # AWS credentials may be specified by using the `:credentials` option and
+      # passing a hash containing your `:access_key_id` and `:secret_access_key`.
+      # If unspecified, credentials will be fetched from the environment, an
+      # ~/.aws/credentials file, or the current instance metadata.
       def self.create(options = {})
         stream = options[:stream]
         client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
@@ -44,12 +54,11 @@ module Telekinesis
         start unless options.fetch(:manual_start, false)
       end
 
-      def start
-        @workers.each do |w|
-          @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w)
-        end
-      end
-
+      # Put a single key, value pair to Kinesis. Both key and value must be
+      # strings.
+      #
+      # This call returns immediately and returns true iff the producer is still
+      # accepting data. Data is put to Kinesis in the background.
       def put(key, data)
         # NOTE: The lock ensures that no new data can be added to the queue after
         # the shutdown flag has been set. See the note in shutdown for details.
@@ -65,6 +74,11 @@ module Telekinesis
         end
       end
 
+      # Put all of the given key, value pairs to Kinesis. Both key and value
+      # must be Strings.
+      #
+      # This call returns immediately and returns true iff the producer is still
+      # accepting data. Data is put to Kinesis in the background.
       def put_all(items)
         # NOTE: Doesn't delegate to put so that shutdown can't cause a call to
         # put_all to only enqueue some items.
@@ -81,6 +95,13 @@ module Telekinesis
         end
       end
 
+      # Shut down this producer. After the call completes, the producer will not
+      # accept any more data, but will finish processing any data it has
+      # buffered internally.
+      #
+      # If block = true is passed, this call will block and wait for the producer
+      # to shut down before returning. This wait times out after duration has
+      # passed.
       def shutdown(block = false, duration = 2, unit = TimeUnit::SECONDS)
         # NOTE: Since a write_lock is exclusive, this prevents any data from being
         # added to the queue while the SHUTDOWN tokens are being inserted. Without
@@ -100,10 +121,14 @@ module Telekinesis
         await(duration, unit) if block
       end
 
+      # Wait for this producer to shutdown.
       def await(duration, unit = TimeUnit::SECONDS)
         @worker_pool.await_termination(duration, unit)
       end
 
+      # Return the number of events currently buffered by this producer. This
+      # doesn't include any events buffered in workers that are currently on
+      # their way to Kinesis.
       def queue_size
         @queue.size
       end
@@ -118,6 +143,12 @@ module Telekinesis
       def on_kinesis_failure(error, items); end
 
       protected
+
+      def start
+        @workers.each do |w|
+          @worker_pool.java_send(:submit, [java.lang.Runnable.java_class], w)
+        end
+      end
 
       def build_executor(worker_count)
         Executors.new_fixed_thread_pool(
