@@ -14,8 +14,9 @@ module Telekinesis
         @send_size = send_size
         @send_every = send_every
 
-        @stream = producer.stream  # for convenience
-        @client = producer.client  # for convenience
+        @stream = producer.stream                   # for convenience
+        @client = producer.client                   # for convenience
+        @failure_handler = producer.failure_handler # for convenience
 
         @buffer = []
         @last_put_at = current_time_millis
@@ -76,14 +77,14 @@ module Telekinesis
       def put_records(items, retries = 5, retry_interval = 1.0)
         begin
           failures = @client.put_records(@stream, items)
-          @producer.on_record_failure(failures) unless failures.empty?
+          @failure_handler.on_record_failure(failures) unless failures.empty?
         rescue => e
           if (retries -= 1) > 0
             sleep retry_interval
-            @producer.on_kinesis_retry(e, items)
+            @failure_handler.on_kinesis_retry(e, items)
             retry
           else
-            @producer.on_kinesis_failure(e, items)
+            @failure_handler.on_kinesis_failure(e, items)
           end
         end
       end

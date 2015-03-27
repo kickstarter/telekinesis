@@ -15,7 +15,7 @@ module Telekinesis
       # For convenience
       MAX_PUT_RECORDS_SIZE = Telekinesis::Aws::KINESIS_MAX_PUT_RECORDS_SIZE
 
-      attr_reader :stream, :client
+      attr_reader :stream, :client, :failure_handler
 
       # Create a new producer.
       #
@@ -26,12 +26,14 @@ module Telekinesis
       def self.create(options = {})
         stream = options[:stream]
         client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
-        new(stream, client, options)
+        failure_handler = options.fetch(:failure_handler, NoopFailureHandler.new)
+        new(stream, client, failure_handler, options)
       end
 
-      def initialize(stream, client, options = {})
+      def initialize(stream, client, failure_handler, options = {})
         @stream = stream or raise ArgumentError, "stream may not be nil"
         @client = client or raise ArgumentError, "client may not be nil"
+        @failure_handler = failure_handler or raise ArgumentError, "failure_handler may not be nil"
         @shutdown = false
 
         queue_size   = options.fetch(:queue_size, 1000)
@@ -132,15 +134,6 @@ module Telekinesis
       def queue_size
         @queue.size
       end
-
-      # Callbacks. These all default to noops.
-      #
-      # Callbacks are all called from background worker threads when that worker
-      # encounters a failure. These callbacks must all be thread-safe.
-
-      def on_record_failure(failed_records); end
-      def on_kinesis_retry(error, items); end
-      def on_kinesis_failure(error, items); end
 
       protected
 

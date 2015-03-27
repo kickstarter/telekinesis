@@ -8,21 +8,20 @@ class AsyncProducerWorkerTest < Minitest::Test
     String.from_java_bytes bb.array
   end
 
-  StubProducer = Struct.new(:stream, :client) do
-    attr_reader :failures
-
-    def on_record_failure(failed_records)
-      @failures = failed_records
+  class CapturingFailureHandler
+    def failed_records
+      @failed_records ||= []
     end
 
-    def on_kinesis_retry(error)
-      $stderr.puts error
+    def on_record_failure(fails)
+      failed_records << fails
     end
 
-    def on_kinesis_failure(error)
-      $stderr.puts error
-    end
+    def on_kinesis_retry(error, items); end
+    def on_kinesis_error(error, items); end
   end
+
+  StubProducer = Struct.new(:stream, :client, :failure_handler)
 
   # NOTE: This stub mocks the behavior of timing out on poll once all of the
   # items have been drained from the internal list.
@@ -51,7 +50,7 @@ class AsyncProducerWorkerTest < Minitest::Test
   end
 
   def stub_producer(stream, responses = [])
-    StubProducer.new(stream, CapturingClient.new(responses))
+    StubProducer.new(stream, CapturingClient.new(responses), CapturingFailureHandler.new)
   end
 
   # NOTE: This always adds SHUTDOWN to the end of the list so that the worker
@@ -184,7 +183,7 @@ class AsyncProducerWorkerTest < Minitest::Test
 
       should "call the producer with all failed records" do
         @worker.run
-        assert_equal(@failed_items, @producer.failures)
+        assert_equal([@failed_items], @producer.failure_handler.failed_records)
       end
     end
 

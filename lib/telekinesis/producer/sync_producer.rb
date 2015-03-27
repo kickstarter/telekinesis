@@ -20,7 +20,7 @@ module Telekinesis
       def self.create(options = {})
         stream = options[:stream]
         client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
-        new(stream, client, options)
+        new(stream, client, failure_handler, options)
       end
 
       def initialize(stream, client, opts = {})
@@ -43,19 +43,10 @@ module Telekinesis
       # Each request sends at most `:send_size` records. By default this is the
       # Kinesis API limit of 500 records.
       def put_all(items)
-        items.each_slice(@send_size).each do |batch|
-          failures = @client.put_records(@stream, batch)
-          on_record_failure(failures) unless failures.empty?
+        items.each_slice(@send_size).flat_map do |batch|
+          @client.put_records(@stream, batch)
         end
       end
-
-      # Callbacks. These all default to noops.
-      #
-      # TODO: Do callbacks make sense in a sync implementation?
-
-      def on_record_failure(failures); end
-      def on_kinesis_retry(error, items); end
-      def on_kinesis_failure(error, items); end
     end
   end
 end

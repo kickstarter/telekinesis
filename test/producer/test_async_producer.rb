@@ -28,20 +28,30 @@ class AsyncProducerTest < Minitest::Test
     end
   end
 
+  def build_producer
+    opts = {
+      queue: @queue,
+      manual_start: true,
+      worker_count: @worker_count,
+    }
+    Telekinesis::Producer::AsyncProducer.new(
+      @stream,
+      StubClient.new,
+      Telekinesis::Producer::NoopFailureHandler.new,
+      opts
+    )
+  end
+
   context "AsyncProducer" do
     setup do
-      @worker_count = 3 #arbitrary
+      @stream = 'test'  # ignored
+      @worker_count = 3 # arbitrary
     end
 
     context "put" do
       setup do
         @queue = ArrayBlockingQueue.new(100)
-        producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
-          queue: @queue,
-          manual_start: true,
-          worker_count: @worker_count,
-        })
-        producer.put("hi", "there")
+        build_producer.put("hi", "there")
       end
 
       should "add the k,v pair to the queue" do
@@ -53,12 +63,7 @@ class AsyncProducerTest < Minitest::Test
       setup do
         @items = 10.times.map{|i| ["key-#{i}", "value-#{i}"]}
         @queue = ArrayBlockingQueue.new(100)
-        producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
-          queue: @queue,
-          manual_start: true,
-          worker_count: @worker_count,
-        })
-        producer.put_all(@items)
+        build_producer.put_all(@items)
       end
 
       should "add all items to the queue" do
@@ -69,18 +74,12 @@ class AsyncProducerTest < Minitest::Test
     context "after shutdown" do
       setup do
         @queue = ArrayBlockingQueue.new(100)
-        @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
-          queue: @queue,
-          manual_start: true,
-          worker_count: @worker_count,
-        })
-
+        @producer = build_producer
         @producer.shutdown
       end
 
       should "shutdown all workers" do
-        assert_equal([Telekinesis::Producer::AsyncProducerWorker::SHUTDOWN] * @worker_count,
-                     @queue.to_a)
+        assert_equal([Telekinesis::Producer::AsyncProducerWorker::SHUTDOWN] * @worker_count, @queue.to_a)
       end
 
       should "not accept events while shut down" do
@@ -91,11 +90,7 @@ class AsyncProducerTest < Minitest::Test
     context "with a put in progress" do
       setup do
         @queue = LatchQueue.new
-        @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
-          queue: @queue,
-          manual_start: true,
-          worker_count: @worker_count,
-        })
+        @producer = build_producer
 
         # Thread blocks waiting for the latch in LatchQueue. Don't do any other
         # set up until this thread is in the critical section.
@@ -127,11 +122,7 @@ class AsyncProducerTest < Minitest::Test
     context "with a shutdown in progress" do
       setup do
         @queue = LatchQueue.new
-        @producer = Telekinesis::Producer::AsyncProducer.new('test', StubClient.new, {
-          queue: @queue,
-          manual_start: true,
-          worker_count: @worker_count,
-        })
+        @producer = build_producer
 
         # Thread blocks waiting to insert :shutdown into the queue because of
         # the latch in LatchQueue. Don't do any other test set up until this

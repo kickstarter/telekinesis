@@ -53,12 +53,12 @@ class SyncProducerTest < Minitest::Test
         setup do
           @client = StubClient.new([])
           @producer = TestingProducer.new('stream', @client)
-          @producer.put_all([])
+          @actual_failures = @producer.put_all([])
         end
 
         should "send no data" do
           assert(@client.requests.empty?)
-          assert(@producer.failures.empty?)
+          assert(@actual_failures.empty?)
         end
       end
 
@@ -72,11 +72,11 @@ class SyncProducerTest < Minitest::Test
           setup do
             @client = StubClient.new([])
             @producer = TestingProducer.new('stream', @client, {send_size: @send_size})
-            @producer.put_all(@items)
+            @actual_failures = @producer.put_all(@items)
           end
 
           should "send one batch and return nothing" do
-            assert(@producer.failures.empty?)
+            assert(@actual_failures.empty?)
             assert_equal([['stream', @items]], @client.requests)
           end
         end
@@ -85,12 +85,12 @@ class SyncProducerTest < Minitest::Test
           setup do
             @client = StubClient.new([["key-2", "value-2", "fake error", "message"]])
             @producer = TestingProducer.new('stream', @client, {send_size: @send_size})
-            @producer.put_all(@items)
+            @actual_failures = @producer.put_all(@items)
           end
 
           should "call on_record_failure" do
             assert_equal([['stream', @items]], @client.requests)
-            assert_equal([["key-2", "value-2", "fake error", "message"]], @producer.failures.first)
+            assert_equal([["key-2", "value-2", "fake error", "message"]], @actual_failures)
           end
         end
       end
@@ -111,29 +111,31 @@ class SyncProducerTest < Minitest::Test
           setup do
             @client = StubClient.new([])
             @producer = TestingProducer.new('stream', @client, {send_size: @send_size})
-            @producer.put_all(@items)
+            @actual_failures = @producer.put_all(@items)
           end
 
           should "send multiple batches and return nothing" do
-            assert(@producer.failures.empty?)
+            assert(@actual_failures.empty?)
             assert_equal(@expected_requests, @client.requests)
           end
         end
 
         context "when some records fail" do
           setup do
-            @expected_failures = [
+            @error_respones = [
               [["k1", "v1", "err", "message"], ["k2", "v2", "err", "message"]],
               [["k-next", "v-next", "err", "message"]]
             ]
-            @client = StubClient.new(*@expected_failures)
+            @expected_failures = @error_respones.flat_map {|x| x }
+
+            @client = StubClient.new(*@error_respones)
             @producer = TestingProducer.new('stream', @client, {send_size: @send_size})
-            @producer.put_all(@items)
+            @actual_failures = @producer.put_all(@items)
           end
 
-          should "call on_record_failure for each batch with a failure in it" do
+          should "return the failures" do
             assert_equal(@expected_requests, @client.requests)
-            assert_equal(@expected_failures, @producer.failures)
+            assert_equal(@expected_failures, @actual_failures)
           end
         end
       end
