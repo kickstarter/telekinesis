@@ -25,8 +25,16 @@ def artifact_name(path)
   end
 end
 
-namespace :build do
+namespace :ext do
   require_relative 'lib/telekinesis/version'
+
+  desc "Cleanup all built extension"
+  task :clean do
+    FileUtils.rm(Dir.glob("lib/telekinesis/*.jar"))
+    Dir.chdir("ext") do
+      `mvn clean 2>&1`
+    end
+  end
 
   task :have_maven? do
     log_ok("Checking for maven") do
@@ -65,19 +73,22 @@ namespace :build do
   end
 
   desc "Build the Java extensions for this gem. Requires JDK6+ and Maven"
-  task :ext => [:have_jdk6_or_higher?, :have_maven?, :update_pom_version] do
+  task :build => [:have_jdk6_or_higher?, :have_maven?, :update_pom_version, :clean] do
     fat_jar = artifact_name('ext/pom.xml')
     log_ok("Building #{fat_jar}") do
       Dir.chdir("ext") do
-        `mvn clean package 2>&1 > target/build_log`
+        `mkdir -p target/`
+        `mvn package 2>&1 > target/build_log`
         raise "build failed. See ext/target/build_log for details" unless $?.success?
         FileUtils.copy("target/#{fat_jar}", "../lib/telekinesis/#{fat_jar}")
       end
     end
   end
+end
 
+namespace :gem do
   desc "Build this gem"
-  task :gem => :ext do
+  task :build => 'ext:build' do
     `gem build telekinesis.gemspec`
   end
 end
@@ -90,10 +101,11 @@ require 'rake/testtask'
 #       alternative.
 task :check_for_ext do
   fat_jar = artifact_name('ext/pom.xml')
-  Rake::Task["build:ext"].invoke unless File.exists?("lib/telekinesis/#{fat_jar}")
+  Rake::Task["ext:build"].invoke unless File.exists?("lib/telekinesis/#{fat_jar}")
 end
 
-Rake::TestTask.new(:test => :check_for_ext) do |t|
+Rake::TestTask.new(:test) do |t|
   t.test_files = FileList["test/**/test_*.rb"].exclude(/test_helper/)
   t.verbose = true
 end
+task :test => :check_for_ext
