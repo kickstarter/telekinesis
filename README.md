@@ -194,6 +194,28 @@ Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'exam
 end
 ```
 
+## Java client logging
+
+If you're running on JRuby, the AWS Java SDK can be extremely noisy and hard
+to control, since it logs through java.util.logging.
+
+Telekinesis comes with a shim that can silence all of that logging or redirect
+it to a Ruby Logger of your choice. This isn't fine-grained control - you're
+capturing or disabling ALL logging from any Java dependency that uses
+java.util.logging - so use it with care.
+
+To entirely disable logging:
+
+```ruby
+Telekinesis::Logging.disable_java_logging
+```
+
+To capture all logging and send it through a Ruby logger:
+
+```ruby
+Telekinesis::Logging.capture_java_logging(Logger.new($stderr))
+```
+
 # Building
 
 ## Prerequisites
