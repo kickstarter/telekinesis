@@ -55,8 +55,6 @@ module Telekinesis
         # the shutdown flag has been set. See the note in shutdown for details.
         # NOTE: Since this is a read lock, multiple threads can `put` data at the
         # same time without blocking on each other.
-        # TODO: is there a try_read_lock? the only time this blocks is if the
-        # producer is shutting down.
         @lock.read_lock do
           if @shutdown
             false
