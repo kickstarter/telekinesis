@@ -85,20 +85,22 @@ When something goes wrong and the Kinesis client throws an exception, it bubbles
 up as a `Telekinesis::Aws::KinesisError` with the underlying exception acessible
 as the `cause.
 
-When some of (but maybe not all of) the records passed to `put\_records` cause
+When some of (but maybe not all of) the records passed to `put_records` cause
 problems, they're returned as an array of
-`[key, value, error\_code, error\_message]` tuples.
+`[key, value, error_code, error_message]` tuples.
+
+> NOTE: The SyncProducer is available on any platform.
 
 ### AsyncProducer
 
 The `AsyncProducer` queues events interally and uses background threads to send
 data to Kinesis. The `AsyncProducer` always uses the `put_records` API call.
 Data is sent when a batch reaches the Kinesis PutRecords limit or when the
-configured `:send\_every\_ms` timeout is reached so that data doesn't
+configured `:send_every_ms` timeout is reached so that data doesn't
 accumulate in the producer and get stale.
 
 The API for the async producer is looks similar to the sync producer. However,
-all `put` and `put\_all` calls return immediately. Since sending (and therefore
+all `put` and `put_all` calls return immediately. Since sending (and therefore
 failure) happens out of band, you can provide an AsyncProducer with a failure
 handler that will be called whenver something bad happens.
 
@@ -129,117 +131,68 @@ producer = Telekinesis::Producer::AsyncProducer.create(
 )
 ```
 
-> NOTE: The SyncProducer is available on platforms that aren't JRuby.
+> NOTE: The AsyncProducer is only available on JRuby.
 
 ## Consumers
 
-Telekinesis provides a wrapper around the [Kinesis Client Library
+### DistributedConsumer
+
+The DistributedConsumer is a wrapper around Amazon's [Kinesis Client Library
 (KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
-The KCL handles reading from multiple shards in parallel, deals with split and
-merged shards, and checkpoints client positions to a DynamoDB table.
+Each DistributedConsumer is part of a group of consumers (an "application") that
+runs on one or more machines. Each consumer gets labelled with a unique id (more
+on that later) and attempts to distribute work evenly between all consumers
+that are part of the same application. The KCL uses DynamoDB to do all of this
+coordination and work sharing.
 
-The following example prints the sequence numbers from a Kinesis stream to
-`stdout`.
+To actually get at the data you're consuming with this client, create a [record
+processor](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java).
+The DistributedConsumer creates a new record processor for each shard. Each
+processor only deals with the records from a single shard.
 
-```ruby
-my_queue = java.util.concurrent.ArrayBlockingQueue.new(1024)
+> NOTE: Since `initialize` is both a reserved method in Ruby and a part of the
+> KCL's IRecordProcessor interface, Telekinesis comes with a shim that replaces
+> `initialize` with `init`.
 
-worker = Kinesis.process_records(build_config) do |records, checkpointer|
-  records.each { |r| @queue.put(r) }
-  checkpointer.checkpoint
-end
+After they're created, Record Processors are initialized with the shard they're
+processing and then handed an enumerable of [Records](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html?com/amazonaws/services/kinesis/AmazonKinesisClient.html)
+and a checkpointer (more on that later) every time the client detects new data
+to process.
 
-Thread.new do
-  loop do
-    puts my_queue.take.sequence_number
-  end
-end
-
-# NOTE: worker.run blocks
-worker.run
-```
-
-*NOTE:* The block passed to `process_records` is being passed to and called from
-multiple threads by the Kinesis client. Be careful about what you do in that
-block! Things like appending to a regular Array with `<<` or incrementing an
-integer outside of the block aren't safe!
-
-Under the hood, `process_records` creates a record processor that uses the
-passed block as the `processRecords` method and passes it to a new KCL
-[Worker](https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/Worker.java). The worker manages concurrency and creates a record processor dedicated to each
-shard in the stream.
-
-To have more control over the processing each shard, define a class with the
-following methods.
+Defining and creating a simple processor might look like:
 
 ```ruby
-class MyWorker
-  def init(shard_id)
-    # Called by the KCL worker on startup with the shard that this worker will
-    # be processing records from.
-  end
-
-  def process_records(records, checkpointer)
-    # Process a batch of records. Checkpoint the app's current position
-    # in the stream (or don't!) by calling checkpointer.checkpoint
-  end
-
-  def shutdown(checkpointer, reason)
-    # Called by the KCL Worker on shutdown.
-  end
-end
-```
-
-This implements a `RecordProcessor` interface defined by the KCL. The `Worker`
-class will instantiate a new processor for each shard it needs to handle, and
-use the processor to handle records from that shard in a background thread.
-
-*NOTE*: Unfortunately, the [`IRecordProcessor`
-interface](https://github.com/awslabs/amazon-kinesis-client/blob/master/src/main/java/com/amazonaws/services/kinesis/clientlibrary/interfaces/IRecordProcessor.java)
-includes an `initialize` method that conflicts with the special Ruby
-`initialize` method.  Fortunately, Kinesis (the library) includes a shim that
-renames the `intialize` method to `init`.
-
-Once you've defined your record processor, create a worker by passing a block
-to the `consumer` method that returns a record processor each time it's called.
-
-```ruby
-class MyWorker
-  def initialize(q)
-    @queue = q
-  end
-
+class MyProcessor
   def init(shard_id)
     @shard_id = shard_id
+    $stderr.puts "started #{@shard_id}"
   end
 
   def process_records(records, checkpointer)
-    records.each { |r| @queue.put([@shard_id, r]) }
-    checkpointer.checkpoint
+    records.each {|r| puts String.from_java_bytes(r.data.array) }
   end
 
-  def shutdown(checkpointer, reason)
-    # Ignored!
-  end
-end
-
-my_queue = java.util.concurrent.ArrayBlockingQueue.new(1024)
-
-worker = Kineis.consumer(stream: "a-stream", ...) do
-  MyWorker.new(my_queue)
-end
-
-Thread.new do
-  loop do
-    shard, record = my_queue.take
-    puts "#{shard}\t#{record.sequence_number}"
+  def shutdown
+    $stderr.puts "shutting down #{@shard_id}"
   end
 end
 
-worker.run
+Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'example') do
+  MyProcessor.new
+end
 ```
 
-TODO: Configuring a Worker.
+To make defining record processors easier, Telekinesis comes with a `Block`
+processor that passes a block to `process_records`. Use this if you don't need
+to do any fancy startup or shutdown in your processors.
+
+```ruby
+Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'example') do
+  Telekinesis::Consumer::Block.new do |records, checkpointer|
+    records.each {|r| puts String.from_java_bytes(r.data.array) }
+  end
+end
+```
 
 # Building
 
