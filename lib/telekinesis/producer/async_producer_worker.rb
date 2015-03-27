@@ -80,10 +80,10 @@ module Telekinesis
         rescue => e
           if (retries -= 1) > 0
             sleep retry_interval
-            @producer.on_kinesis_retry(e)
+            @producer.on_kinesis_retry(e, items)
             retry
           else
-            @producer.on_kinesis_failure(e)
+            @producer.on_kinesis_failure(e, items)
           end
         end
       end

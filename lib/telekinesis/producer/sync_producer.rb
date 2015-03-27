@@ -31,8 +31,8 @@ module Telekinesis
       # TODO: Do callbacks make sense in a sync implementation?
 
       def on_record_failure(failures); end
-      def on_kinesis_retry(error); end
-      def on_kinesis_failure(error); end
+      def on_kinesis_retry(error, items); end
+      def on_kinesis_failure(error, items); end
     end
   end
 end
