@@ -74,9 +74,9 @@ module Telekinesis
       # starts in the current thread and returns nil.
       def run(background = false)
         if background
-          Thread.new { @under.start }
+          Thread.new { @under.run }
         else
-          @under.start
+          @under.run
         end
       end
 
