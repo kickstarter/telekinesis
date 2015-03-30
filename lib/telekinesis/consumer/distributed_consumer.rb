@@ -99,8 +99,7 @@ module Telekinesis
             # Handle initial position in stream separately. It's the only option
             # that requires a value conversion.
             if k == :initial_position_in_stream
-              pos = InitialPositionInStream.value_of(initial_position)
-              kcl_config.with_initial_position_in_stream(pos)
+              kcl_config.with_initial_position_in_stream(InitialPositionInStream.value_of(v))
             else
               setter = "with_#{k}".to_sym
               if kcl_config.respond_to?(setter)
