@@ -8,8 +8,9 @@ provide an easy interface for writing consumers.
 
 ## Requirements
 
-Telekinesis runs on JRuby 1.7.x or later, with at least Java 6. A minimal set
-of producer functionality is available on MRI 1.9.3 or later.
+Telekinesis runs on JRuby 1.7.x or later, with at least Java 6. There's some
+limited support for other Rubies, but many of the goodies involve wrapping
+AWS Java libraries.
 
 If you want to build from source, you need to have Apache Maven installed.
 
@@ -23,13 +24,16 @@ gem install telekinesis
 
 Telekinesis includes two high-level
 [Producers](http://docs.aws.amazon.com/kinesis/latest/dev/amazon-kinesis-producers.html).
-Records are sent as `key`, `value` pairs of Strings. The key is used by Kinesis
-to partition your data into shards. Both keys and values must respect any
-Kinesis service [limits](http://docs.aws.amazon.com/kinesis/latest/dev/service-sizes-and-limits.html).
 
-Both producers batch data to Kinesis using the PutRecords API. Batching
-increases throughput to Kinesis at the expense of latency by cutting down the
-number of API requests made to AWS.
+Telekinesis assumes that records are `[key, value]` pairs of Strings. The key
+*must* be a string as enforced by Kinesis itself. Keys are used by the service
+to partition data into shards. Values can be any old blob of data, but for
+simplicity, Telekinesis expects strings.
+
+Both keys and values should respect any Kinesis
+[limits](http://docs.aws.amazon.com/kinesis/latest/dev/service-sizes-and-limits.html).
+and all of the [restrictions](http://docs.aws.amazon.com/kinesis/latest/APIReference/API_PutRecord.html)
+in the PutRecords API documentation.
 
 ### SyncProducer
 
@@ -52,8 +56,12 @@ Calls to `put` send a single record at a time to Kinesis, where calls to
 If more than 500 records are passed to `put_records` they're grouped into batches
 and sent.
 
-> NOTE: To send fewer records to kinesis at a time, you can adjust the
-> `:send_size` parameter in `create`.
+> NOTE: To send fewer records to kinesis at a time when using `put_records`,
+> you can adjust the `:send_size` parameter in `create`.
+
+Using `put_records` over `put` is recommended if you have any way to batch your
+data. Since Kinesis has an HTTP API and often has high latency, it tends to make
+sense to try and increase throughput as much as possible by batching data.
 
 ```ruby
 # file is a file containing CSV data that looks like:
@@ -93,16 +101,22 @@ problems, they're returned as an array of
 ### AsyncProducer
 
 The `AsyncProducer` queues events interally and uses background threads to send
-data to Kinesis using the `put_records` API call.  Data is sent when a batch
-reaches the Kinesis limit of 500 records or when the producer's
-`:send_every_ms` timeout is reached.
+data to Kinesis.  Data is sent when a batch reaches the Kinesis limit of 500
+records or when the producer's timeout is reached.
+
+> NOTE: You can configure the size at which a batch is sent by passing the
+> `:send_size` parameter to create. The producer's internal timeout can be
+> set by using the `:send_every_ms` parameter.
 
 The API for the async producer is looks similar to the sync producer. However,
-all `put` and `put_all` calls return immediately.
+all `put` and `put_all` calls return immediately. Both `put` and `put_all`
+return `true` if the producer enqueued the data for sending later, and `false`
+if the producer is not accepting data for any reason. If the producer's internal
+queue fill up, calls to `put` and `put_all` will block.
 
-Since sending therefore failure happen in a different thread, you can provide
-an AsyncProducer with a failure handler thats called whenver something bad
-happens.
+Since sending (and therefore failures) happen in a different thread, you can
+provide an AsyncProducer with a failure handler that's called whenver something
+bad happens.
 
 ```ruby
 class MyFailureHandler
@@ -138,29 +152,43 @@ producer = Telekinesis::Producer::AsyncProducer.create(
 ### DistributedConsumer
 
 The DistributedConsumer is a wrapper around Amazon's [Kinesis Client Library
-(KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
-Each DistributedConsumer is part of a group of consumers (an application or
-application group) that could be running on any number of hosts. Consumers
-within the same group attempt to distribute work evenly between themselves by
-splitting it up per shard and gracefully handle the failure of an invidual
-consumer. Work is also checkpointed per-shard so that in the event of a consumer
-restarting or failing, a new consumer can pick up where the old one left off.
+(also called the KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
 
-Each consumer gets labelled with a unique id. Telekinesis assumes you'll be
-running one consumer per host, so `:worker_id` defaults to the current
-hostname.
+Each DistributedConsumer is considered to be part of a group of consumers that
+make up an _application_. An application can be running on any number of hosts.
+Consumers identify themself uniquely within an application by specifying a
+`worker_id`.
 
-To actually get at the data you're consuming with this client, create a [record
-processor](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java) and tell `DistributedConsumer` how to create a
-processor when it becomes responsible for a shard.
+All of the consumers within an application attempt to distribute work evenly
+between themselves by coordinating through a DynamoDB table. This coordination
+ensures that a single consumer processes each shard, and that if one consumer
+fails for any reason, another consumer can pick up from the point at which it
+last checkpointed.
 
-> NOTE: Since `initialize` is both a reserved method in Ruby and a part of the
-> KCL's IRecordProcessor interface, Telekinesis comes with a shim that replaces
-> `initialize` with `init`.
+This is all part of the KCL! Telekinesis just makes it easy to use from JRuby.
+
+Each DistributedConsumer has to know how to process all the data it's
+retreiving from Kinesis. That's done by creating a [record
+processor](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java)
+and telling a `DistributedConsumer` how to create a processor when it becomes
+responsible for a shard.
+
+We highly recommend reading the [official
+docs](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java)
+on implementing the IRecordProcessor interface before you continue.
+
+> NOTE: Since `initialize` is a reserved method, Telekinesis takes care of
+> calling your `init` method whenever the KCL calls IRecordProcessor's
+> `initialize` method.
+
+> NOTE: Make sure you read the Kinesis Record Processor documentation carefully.
+> Failures, checkpoints, and shutting require some attention. More on that later.
 
 After its created, a record processor is initialized with the id of the shard
-it's processing, and handed an enumerable of [Records](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html?com/amazonaws/services/kinesis/AmazonKinesisClient.html) and a checkpointer (see below) every time
-the consumer detects new data to process.
+it's processing, and handed an enumerable of
+[Records](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html?com/amazonaws/services/kinesis/AmazonKinesisClient.html)
+and a checkpointer (see below) every time the consumer detects new data to
+process.
 
 Defining and creating a simple processor might look like:
 
@@ -168,15 +196,15 @@ Defining and creating a simple processor might look like:
 class MyProcessor
   def init(shard_id)
     @shard_id = shard_id
-    $stderr.puts "started #{@shard_id}"
+    $stderr.puts "Started processing #{@shard_id}"
   end
 
   def process_records(records, checkpointer)
-    records.each {|r| puts String.from_java_bytes(r.data.array) }
+    records.each {|r| puts "key=#{r.partition_key} value=#{String.from_java_bytes(r.data.array)}" }
   end
 
   def shutdown
-    $stderr.puts "shutting down #{@shard_id}"
+    $stderr.puts "Shutting down #{@shard_id}"
   end
 end
 
@@ -186,21 +214,36 @@ end
 ```
 
 To make defining record processors easier, Telekinesis comes with a `Block`
-processor that passes a block to `process_records`. Use this if you don't need
-to do any explicit startup or shutdown in your processors.
+processor that lets you use a block to specify your `process_records` method.
+Use this if you don't need to do any explicit startup or shutdown in a record
+processor.
 
 ```ruby
 Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'example') do
   Telekinesis::Consumer::Block.new do |records, checkpointer|
-    records.each {|r| puts String.from_java_bytes(r.data.array) }
+    records.each {|r| puts "key=#{r.partition_key} value=#{String.from_java_bytes(r.data.array)}" }
   end
 end
 ```
 
+Once you get into building a client application, you'll probably want
+to know about some of the following advanced tips n' tricks.
+
+#### Client State
+
+Each KCL Application gets its own DynamoDB table that stores all of this state.
+The `:application` name is used as the DynamoDB table name, so beware of
+namespace collisions if you use DynamoDB on its own. Altering or reseting any
+of this state involves manually altering the application's Dynamo table.
+
 #### Errors while processing records
 
-The KCL basically punts on any errors that might happen in `process_records`,
-and `DistributedConsumer` doesn't do anything fancy to work around this.
+When a call to `process_records` fails, the KCL expects you to handle the
+failure and try to reprocess. If you let an exception escape, it happily moves
+on to the next batch of records from Kinesis and will let you checkpoint further
+on down the road.
+
+From the [official docs](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html):
 
 > The KCL relies on processRecords to handle any exceptions that arise from
 > processing the data records. If an exception is thrown from processRecords,
@@ -233,11 +276,6 @@ take precedent, so if you start a consumer with `initial_position_in_stream: 'LA
 and then restart with `initial_position_in_stream: 'TRIM_HORIZON'` you still end
 up starting from `LATEST`.
 
-Each KCL Application gets its own DynamoDB table that stores all of this state.
-The `:application` name is used as the DynamoDB table name, so beware of
-namespace collisions if you use DynamoDB on its own. Altering or reseting any
-of this state involves manually altering the application's Dynamo table.
-
 ## Java client logging
 
 If you're running on JRuby, the AWS Java SDK can be extremely noisy and hard
@@ -259,6 +297,8 @@ To capture all logging and send it through a Ruby logger:
 ```ruby
 Telekinesis::Logging.capture_java_logging(Logger.new($stderr))
 ```
+
+----
 
 # Building
 
