@@ -1,4 +1,6 @@
 require "telekinesis"
+require "telekinesis/consumer/base_processor"
+require "telekinesis/consumer/block"
 
 module Telekinesis
   module Consumer
