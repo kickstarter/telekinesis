@@ -10,9 +10,9 @@ provide an easy interface for writing consumers.
 
 Telekinesis runs on JRuby 1.7.x or later, with at least Java 6. There's some
 limited support for other Rubies, but many of the goodies involve wrapping
-AWS Java libraries.
+the AWS Java libraries.
 
-If you want to build from source, you need to have Apache Maven installed.
+If you want to build from source, you will need to have Apache Maven installed.
 
 ## Installing
 
@@ -25,7 +25,7 @@ gem install telekinesis
 Telekinesis includes two high-level
 [Producers](http://docs.aws.amazon.com/kinesis/latest/dev/amazon-kinesis-producers.html).
 
-Telekinesis assumes that records are `[key, value]` pairs of Strings. The key
+Telekinesis assumes that records are `[key, value]` pairs of strings. The key
 *must* be a string as enforced by Kinesis itself. Keys are used by the service
 to partition data into shards. Values can be any old blob of data, but for
 simplicity, Telekinesis expects strings.
@@ -38,7 +38,7 @@ in the PutRecords API documentation.
 ### SyncProducer
 
 The `SyncProducer` sends data to Kinesis every time `put` or `put_records`
-is called. These calls block until the call to Kinesis returns.
+is called. These calls will block until the call to Kinesis returns.
 
 
 ```ruby
@@ -52,12 +52,12 @@ producer = Telekinesis::Producer::SyncProducer.create(
 ```
 
 Calls to `put` send a single record at a time to Kinesis, where calls to
-`put_records` send up to 500 records at a time (it's a Kinesis service limit).
+`put_records` can send up to 500 records at a time, which is the Kinesis service limit.
 If more than 500 records are passed to `put_records` they're grouped into batches
 and sent.
 
-> NOTE: To send fewer records to kinesis at a time when using `put_records`,
-> you can adjust the `:send_size` parameter in `create`.
+> NOTE: To send fewer records to Kinesis at a time when using `put_records`,
+> you can adjust the `:send_size` parameter in the `create` method.
 
 Using `put_records` over `put` is recommended if you have any way to batch your
 data. Since Kinesis has an HTTP API and often has high latency, it tends to make
@@ -89,14 +89,14 @@ producer.put_all(lines.to_a)
 ```
 
 When something goes wrong and the Kinesis client throws an exception, it bubbles
-up as a `Telekinesis::Aws::KinesisError` with the underlying exception acessible
+up as a `Telekinesis::Aws::KinesisError` with the underlying exception accessible
 as the `cause` field.
 
 When some of (but maybe not all of) the records passed to `put_records` cause
 problems, they're returned as an array of
 `[key, value, error_code, error_message]` tuples.
 
-> NOTE: The SyncProducer is available on any platform.
+> NOTE: The `SyncProducer` is available on any platform.
 
 ### AsyncProducer
 
@@ -108,14 +108,14 @@ records or when the producer's timeout is reached.
 > `:send_size` parameter to create. The producer's internal timeout can be
 > set by using the `:send_every_ms` parameter.
 
-The API for the async producer is looks similar to the sync producer. However,
+The API for the `AsyncProducer` is looks similar to the `SyncProducer`. However,
 all `put` and `put_all` calls return immediately. Both `put` and `put_all`
 return `true` if the producer enqueued the data for sending later, and `false`
 if the producer is not accepting data for any reason. If the producer's internal
 queue fill up, calls to `put` and `put_all` will block.
 
 Since sending (and therefore failures) happen in a different thread, you can
-provide an AsyncProducer with a failure handler that's called whenver something
+provide an `AsyncProducer` with a failure handler that's called whenver something
 bad happens.
 
 ```ruby
@@ -145,16 +145,16 @@ producer = Telekinesis::Producer::AsyncProducer.create(
 )
 ```
 
-> NOTE: The AsyncProducer is only available on JRuby.
+> NOTE: The `AsyncProducer` is only available on JRuby.
 
 ## Consumers
 
 ### DistributedConsumer
 
-The DistributedConsumer is a wrapper around Amazon's [Kinesis Client Library
+The `DistributedConsumer` is a wrapper around Amazon's [Kinesis Client Library
 (also called the KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
 
-Each DistributedConsumer is considered to be part of a group of consumers that
+Each `DistributedConsumer` is considered to be part of a group of consumers that
 make up an _application_. An application can be running on any number of hosts.
 Consumers identify themself uniquely within an application by specifying a
 `worker_id`.
@@ -165,9 +165,9 @@ ensures that a single consumer processes each shard, and that if one consumer
 fails for any reason, another consumer can pick up from the point at which it
 last checkpointed.
 
-This is all part of the KCL! Telekinesis just makes it easy to use from JRuby.
+This is all part of the KCL! Telekinesis just makes it easier to use from JRuby.
 
-Each DistributedConsumer has to know how to process all the data it's
+Each `DistributedConsumer` has to know how to process all the data it's
 retreiving from Kinesis. That's done by creating a [record
 processor](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java)
 and telling a `DistributedConsumer` how to create a processor when it becomes
@@ -175,19 +175,18 @@ responsible for a shard.
 
 We highly recommend reading the [official
 docs](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java)
-on implementing the IRecordProcessor interface before you continue.
+on implementing the `IRecordProcessor` interface before you continue.
 
 > NOTE: Since `initialize` is a reserved method, Telekinesis takes care of
-> calling your `init` method whenever the KCL calls IRecordProcessor's
+> calling your `init` method whenever the KCL calls `IRecordProcessor`'s
 > `initialize` method.
 
 > NOTE: Make sure you read the Kinesis Record Processor documentation carefully.
 > Failures, checkpoints, and shutting require some attention. More on that later.
 
-After its created, a record processor is initialized with the id of the shard
+After it is created, a record processor is initialized with the ID of the shard
 it's processing, and handed an enumerable of
-[Records](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html?com/amazonaws/services/kinesis/AmazonKinesisClient.html)
-and a checkpointer (see below) every time the consumer detects new data to
+[Records](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html?com/amazonaws/services/kinesis/AmazonKinesisClient.html) and a checkpointer (see below) every time the consumer detects new data to
 process.
 
 Defining and creating a simple processor might look like:
@@ -227,7 +226,7 @@ end
 ```
 
 Once you get into building a client application, you'll probably want
-to know about some of the following advanced tips n' tricks.
+to know about some of the following advanced tips and tricks.
 
 #### Client State
 
@@ -269,7 +268,7 @@ used to checkpoint all records that have been passed to the processor so far
 (by just calling `checkpointer.checkpoint`) or up to a particular sequence
 number (by calling `checkpointer.checkpoint(record.sequence_number)`).
 
-While a DistributedConsumer can be initialized with an
+While a `DistributedConsumer` can be initialized with an
 `:initial_position_in_stream` option, any existing checkpoint for a shard will
 take precedent over that value. Furthermore, any existing STATE in DynamoDB will
 take precedent, so if you start a consumer with `initial_position_in_stream: 'LATEST'`
@@ -279,12 +278,12 @@ up starting from `LATEST`.
 ## Java client logging
 
 If you're running on JRuby, the AWS Java SDK can be extremely noisy and hard
-to control, since it logs through java.util.logging.
+to control, since it logs through `java.util.logging`.
 
 Telekinesis comes with a shim that can silence all of that logging or redirect
 it to a Ruby Logger of your choice. This isn't fine-grained control - you're
 capturing or disabling ALL logging from any Java dependency that uses
-java.util.logging - so use it with care.
+`java.util.logging` - so use it with care.
 
 To entirely disable logging:
 
@@ -374,8 +373,7 @@ $ rake build:gem
 Telekinesis comes with a small set of unit tests. Run those with plain ol'
 `rake test`.
 
-**NOTE:** The java extension *must* be built and installed before you can run
-unit tests.
+> NOTE: The Java extension *must* be built and installed before you can run
+> unit tests.
 
 Integration tests coming soon.
-
