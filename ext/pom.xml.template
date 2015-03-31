@@ -60,6 +60,6 @@
     <!-- ================================================================== -->
     <properties>
         <aws-java-sdk-version>1.6.9.1</aws-java-sdk-version>
-        <amazon-kinesis-client-version>1.1.0</amazon-kinesis-client-version>
+        <amazon-kinesis-client-version>1.2.1</amazon-kinesis-client-version>
     </properties>
 </project>
