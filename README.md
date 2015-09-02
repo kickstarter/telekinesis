@@ -55,7 +55,7 @@ in the PutRecords API documentation.
 
 ### SyncProducer
 
-The `SyncProducer` sends data to Kinesis every time `put` or `put_records`
+The `SyncProducer` sends data to Kinesis every time `put` or `put_all`
 is called. These calls will block until the call to Kinesis returns.
 
 
@@ -72,14 +72,14 @@ producer = Telekinesis::Producer::SyncProducer.create(
 ```
 
 Calls to `put` send a single record at a time to Kinesis, where calls to
-`put_records` can send up to 500 records at a time, which is the Kinesis service limit.
-If more than 500 records are passed to `put_records` they're grouped into batches
-and sent.
+`put_all` can send up to 500 records at a time, which is the Kinesis service
+limit.  If more than 500 records are passed to `put_all` they're grouped into
+batches and sent.
 
-> NOTE: To send fewer records to Kinesis at a time when using `put_records`,
-> you can adjust the `:send_size` parameter in the `create` method.
+> NOTE: To send fewer records to Kinesis at a time when using `put_all`, you
+> can adjust the `:send_size` parameter in the `create` method.
 
-Using `put_records` over `put` is recommended if you have any way to batch your
+Using `put_all` over `put` is recommended if you have any way to batch your
 data. Since Kinesis has an HTTP API and often has high latency, it tends to make
 sense to try and increase throughput as much as possible by batching data.
 
@@ -112,7 +112,7 @@ When something goes wrong and the Kinesis client throws an exception, it bubbles
 up as a `Telekinesis::Aws::KinesisError` with the underlying exception accessible
 as the `cause` field.
 
-When some of (but maybe not all of) the records passed to `put_records` cause
+When some of (but maybe not all of) the records passed to `put_all` cause
 problems, they're returned as an array of
 `[key, value, error_code, error_message]` tuples.
 
