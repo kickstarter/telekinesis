@@ -384,10 +384,10 @@ the built gem.
 
 Build the Gem.
 
-Use the `rake build:gem` task to build the complete gem, uberjar and all.
+Use the `rake gem:build` task to build the complete gem, uberjar and all.
 
 ```
-$ rake build:gem
+$ rake gem:build
 ```
 
 # Testing
