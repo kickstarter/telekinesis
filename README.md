@@ -375,10 +375,10 @@ $ source ~/.bash_profile
 Build the Java shim and jar.
 
 ```
-$ rake build:ext
+$ rake ext:build
 ```
 
-The `rake build:ext` task builds the Java shim and packages all of the required Java
+The `rake ext:build` task builds the Java shim and packages all of the required Java
 classes into a single jar. Since bytecode is portable, the JAR is shipped with
 the built gem.
 
