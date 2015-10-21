@@ -28,7 +28,7 @@ provide an easy interface for writing consumers.
 
 ## Requirements
 
-Telekinesis runs on JRuby 1.7.x or later, with at least Java 6.
+Telekinesis runs on JRuby 9.0.1.0 or later, with at least Java 6.
 
 If you want to build from source, you need to have Apache Maven installed.
 
