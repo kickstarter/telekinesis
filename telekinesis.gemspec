@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.platform     = "java"
   spec.files        = `git ls-files`.split($/) + Dir.glob("lib/telekinesis/*.jar")
   spec.require_paths = ["lib"]
-  spec.add_dependency "aws-sdk"
+  spec.add_dependency "aws-sdk", '~> 2.1'
 
   spec.add_development_dependency "rake"
   spec.add_development_dependency "nokogiri"
