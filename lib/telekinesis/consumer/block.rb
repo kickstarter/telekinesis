@@ -4,8 +4,10 @@ module Telekinesis
     # quickly define a consumer.
     #
     # Telekinesis::Consumer::Worker.new(stream: 'my-stream', app: 'tail') do
-    #   Telekinesis::Consumer::Block.new do |records, checkpointer|
+    #   Telekinesis::Consumer::Block.new do |records, checkpointer, millis_behind_latest|
     #     records.each {|r| puts r}
+    #     $stderr.puts "#{millis_behind_latest} ms behind"
+    #     checkpointer.checkpoint
     #   end
     # end
     class Block < BaseProcessor
@@ -14,8 +16,8 @@ module Telekinesis
         @block = block
       end
 
-      def process_records(records, checkpointer)
-        @block.call(records, checkpointer)
+      def process_records(input)
+        @block.call(input.records, input.checkpointer, input.millis_behind_latest)
       end
     end
   end
