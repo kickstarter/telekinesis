@@ -7,7 +7,7 @@
     - [SyncProducer](#syncproducer)
     - [AsyncProducer](#asyncproducer)
   - [Consumers](#consumers)
-    - [DistributedConsumer](#distributedconsumer)
+    - [KCL](#kcl)
       - [Client State](#client-state)
       - [Errors while processing records](#errors-while-processing-records)
       - [Checkpoints and `INITIAL_POSITION_IN_STREAM`](#checkpoints-and-initial_position_in_stream)
@@ -167,15 +167,15 @@ producer = Telekinesis::Producer::AsyncProducer.create(
 
 ## Consumers
 
-### DistributedConsumer
+### KCL
 
-The `DistributedConsumer` is a wrapper around Amazon's [Kinesis Client Library
-(also called the KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
+`Telekinesis::Consumer::KCL` is a wrapper around Amazon's [Kinesis Client
+Library (also called the KCL)](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-app.html#kinesis-record-processor-overview-kcl).
 
-Each `DistributedConsumer` is considered to be part of a group of consumers that
-make up an _application_. An application can be running on any number of hosts.
-Consumers identify themself uniquely within an application by specifying a
-`worker_id`.
+Each KCL instance is part of a group of consumers that make up an
+_application_. An application can be running on any number of hosts in any
+number of processes.  Consumers identify themself uniquely within an
+application by specifying a `worker_id`.
 
 All of the consumers within an application attempt to distribute work evenly
 between themselves by coordinating through a DynamoDB table. This coordination
@@ -183,12 +183,13 @@ ensures that a single consumer processes each shard, and that if one consumer
 fails for any reason, another consumer can pick up from the point at which it
 last checkpointed.
 
-This is all part of the KCL! Telekinesis just makes it easier to use from JRuby.
+This is all part of the official AWS library! Telekinesis just makes it easier
+to use from JRuby.
 
-Each `DistributedConsumer` has to know how to process all the data it's
+Each client has to know how to process all the data it's
 retreiving from Kinesis. That's done by creating a [record
 processor](http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java)
-and telling a `DistributedConsumer` how to create a processor when it becomes
+and telling a `KCL` how to create a processor when it becomes
 responsible for a shard.
 
 We highly recommend reading the [official
@@ -213,13 +214,15 @@ Defining and creating a simple processor might look like:
 require 'telekinesis'
 
 class MyProcessor
-  def init(shard_id)
-    @shard_id = shard_id
+  def init(init_input)
+    @shard_id = init_input.shard_id
     $stderr.puts "Started processing #{@shard_id}"
   end
 
-  def process_records(records, checkpointer)
-    records.each {|r| puts "key=#{r.partition_key} value=#{String.from_java_bytes(r.data.array)}" }
+  def process_records(process_records_input)
+    process_records_input.records.each do
+      |r| puts "key=#{r.partition_key} value=#{String.from_java_bytes(r.data.array)}"
+    end
   end
 
   def shutdown
@@ -227,7 +230,7 @@ class MyProcessor
   end
 end
 
-Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'example') do
+Telekinesis::Consumer::KCL.new(stream: 'some-events', app: 'example') do
   MyProcessor.new
 end
 ```
@@ -240,8 +243,8 @@ processor.
 ```ruby
 require 'telekinesis'
 
-Telekinesis::Consumer::DistributedConsumer.new(stream: 'some-events', app: 'example') do
-  Telekinesis::Consumer::Block.new do |records, checkpointer|
+Telekinesis::Consumer::KCL.new(stream: 'some-events', app: 'example') do
+  Telekinesis::Consumer::Block.new do |records, checkpointer, millis_behind|
     records.each {|r| puts "key=#{r.partition_key} value=#{String.from_java_bytes(r.data.array)}" }
   end
 end
@@ -290,12 +293,12 @@ used to checkpoint all records that have been passed to the processor so far
 (by just calling `checkpointer.checkpoint`) or up to a particular sequence
 number (by calling `checkpointer.checkpoint(record.sequence_number)`).
 
-While a `DistributedConsumer` can be initialized with an
-`:initial_position_in_stream` option, any existing checkpoint for a shard will
-take precedent over that value. Furthermore, any existing STATE in DynamoDB will
-take precedent, so if you start a consumer with `initial_position_in_stream: 'LATEST'`
-and then restart with `initial_position_in_stream: 'TRIM_HORIZON'` you still end
-up starting from `LATEST`.
+While a `KCL` consumer can be initialized with an `:initial_position_in_stream`
+option, any existing checkpoint for a shard will take precedent over that
+value. Furthermore, any existing STATE in DynamoDB will take precedent, so if
+you start a consumer with `initial_position_in_stream: 'LATEST'` and then
+restart with `initial_position_in_stream: 'TRIM_HORIZON'` you still end up
+starting from `LATEST`.
 
 ## Java client logging
 

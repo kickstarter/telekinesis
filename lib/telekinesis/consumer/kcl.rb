@@ -3,29 +3,31 @@ module Telekinesis
     java_import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionInStream
     java_import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 
-    class DistributedConsumer
-      # Create a new consumer that consumes data from a Kinesis stream.
-      # DistributedConsumers use DynamoDB to register as part of the same
-      # application and evenly distribute work between them. See the
-      # AWS Docs for more information:
+    class KCL
+      # Create a new consumer that consumes data from a Kinesis stream using the
+      # AWS Kinesis Client Library.
+      #
+      # The KCL uses DynamoDB to register clients as part of the an application
+      # and evenly distribute work between all of the clients registered for
+      # the same application. See the AWS Docs for more information:
       #
       # http://docs.aws.amazon.com/kinesis/latest/dev/developing-consumer-apps-with-kcl.html
       #
-      # DistributedConsumers are configured with a hash. The Kinesis `:stream`
-      # to consume from is required.
+      # KCLs are configured with a hash. The Kinesis `:stream` to consume from
+      # is required.
       #
-      # DistribtuedConsumers operate in groups. All consumers with the same
-      # `:app` id use dynamo to attempt to distribute work evenly among
-      # themselves. The `:worker_id` is used to distinguish individual clients
-      # (`:worker_id` defaults to the current hostname. If you plan to run more
-      # than one DistributedConsumer in the same `:app` per host, make sure you
-      # set this to something unique!).
+      # KCL clients operate in groups. All consumers with the same `:app` id use
+      # DynamoDB to attempt to distribute work evenly among themselves. The
+      # `:worker_id` is used to distinguish individual clients (`:worker_id`
+      # defaults to the current hostname. If you plan to run more than one KCL
+      # client in the same `:app` on the same host, make sure you set this to
+      # something unique!).
       #
-      # Any other valid KCL Worker `:options` may be passed as a hash.
+      # Any other valid KCL Worker `:options` may be passed as a nested hash.
       #
       # For example, to configure a `tail` app on `some-stream` and use the
       # default `:worker_id`, you might pass the following configuration to your
-      # DistributedConsumer.
+      # KCL.
       #
       #     config = {
       #       app: 'tail',
@@ -33,10 +35,10 @@ module Telekinesis
       #       options: {initial_position_in_stream: 'TRIM_HORIZON'}
       #     }
       #
-      # To actually process the stream, a DistribtuedConsumer creates
-      # record processors. These are objects that correspond to the KCL's
-      # RecordProcessor interface - processors must implement `init`,
-      # `process_records`, and `shutdown` methods.
+      # To actually process the stream, a KCL client creates record processors.
+      # These are objects that correspond to the KCL's RecordProcessor
+      # interface - processors must implement `init`, `process_records`, and
+      # `shutdown` methods.
       #
       # http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kcl-java-interface-v2
       #
@@ -47,18 +49,20 @@ module Telekinesis
       #
       # Telekinesis provides a BaseProcessor that implements no-op versions
       # of all of the required methods to make writing quick processors easier
-      # and a Block processor that executes the specified block every time
+      # and a Block processor that executes the given block every time
       # `process_records` is called.
       #
-      # To write a stream tailer, you might use Block as follows:
+      # To write a simple stream tailer, you might use Block as follows:
       #
-      #     Telekinesis::Consumer::DistributedConsumer.new(config) do
-      #       Telekinesis::Consumer::Block.new do |records, checkpointer, millis_behind_latest|
-      #         records.each {|r| puts r}
+      #     kcl_worker = Telekinesis::Consumer::KCL.new(config) do
+      #       Telekinesis::Consumer::BlockProcessor.new do |records, checkpointer, millis_behind_latest|
+      #         records.each{|r| puts r}
       #         $stderr.puts "#{millis_behind_latest} ms behind"
       #         checkpointer.checkpoint
       #       end
       #     end
+      #
+      #     kcl_worker.run
       #
       def initialize(config, &block)
         raise ArgumentError, "No block given!" unless block_given?
