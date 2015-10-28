@@ -38,7 +38,7 @@ module Telekinesis
       # RecordProcessor interface - processors must implement `init`,
       # `process_records`, and `shutdown` methods.
       #
-      # http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kinesis-record-processor-implementation-interface-java
+      # http://docs.aws.amazon.com/kinesis/latest/dev/kinesis-record-processor-implementation-app-java.html#kcl-java-interface-v2
       #
       # To specify which record processor to create, pass a block to your
       # distribtued consumer that returns a new record processor. This block
@@ -53,8 +53,10 @@ module Telekinesis
       # To write a stream tailer, you might use Block as follows:
       #
       #     Telekinesis::Consumer::DistributedConsumer.new(config) do
-      #       Telekinesis::Consumer::Block do |records, _|
+      #       Telekinesis::Consumer::Block.new do |records, checkpointer, millis_behind_latest|
       #         records.each {|r| puts r}
+      #         $stderr.puts "#{millis_behind_latest} ms behind"
+      #         checkpointer.checkpoint
       #       end
       #     end
       #

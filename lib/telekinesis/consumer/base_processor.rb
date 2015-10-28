@@ -4,9 +4,9 @@ module Telekinesis
     # IRecordProcessor methods. Override it to implement simple IRecordProcessors
     # that don't need to do anything special on init or shutdown.
     class BaseProcessor
-      def init(shard_id); end
-      def process_records(records, checkpointer); end
-      def shutdown(checkpointer, reason); end
+      def init(initialization_input); end
+      def process_records(process_records_input); end
+      def shutdown(shutdown_input); end
     end
   end
 end
