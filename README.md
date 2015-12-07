@@ -230,9 +230,11 @@ class MyProcessor
   end
 end
 
-Telekinesis::Consumer::KCL.new(stream: 'some-events', app: 'example') do
+worker = Telekinesis::Consumer::KCL.new(stream: 'some-events', app: 'example') do
   MyProcessor.new
 end
+
+worker.run
 ```
 
 To make defining record processors easier, Telekinesis comes with a `Block`
@@ -243,11 +245,13 @@ processor.
 ```ruby
 require 'telekinesis'
 
-Telekinesis::Consumer::KCL.new(stream: 'some-events', app: 'example') do
+worker = Telekinesis::Consumer::KCL.new(stream: 'some-events', app: 'example') do
   Telekinesis::Consumer::Block.new do |records, checkpointer, millis_behind|
     records.each {|r| puts "key=#{r.partition_key} value=#{String.from_java_bytes(r.data.array)}" }
   end
 end
+
+worker.run
 ```
 
 Once you get into building a client application, you'll probably want
