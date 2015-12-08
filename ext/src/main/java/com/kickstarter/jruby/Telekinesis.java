@@ -1,5 +1,8 @@
 package com.kickstarter.jruby;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
@@ -43,16 +46,22 @@ public class Telekinesis {
      * Create a new KCL {@link Worker} that processes records using the given
      * {@link IRecordProcessorFactory}.
      */
-    public static Worker newWorker(final KinesisClientLibConfiguration config, final IRecordProcessorFactory factory) {
+    public static Worker newWorker(final KinesisClientLibConfiguration config, final Boolean multithread, final IRecordProcessorFactory factory) {
         com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory v2Factory = new com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory() {
             @Override
             public com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor createProcessor() {
                 return new RecordProcessorShim(factory.createProcessor());
             }
         };
+        /**
+        * If multithread, use KCL's defaults (currently newCachedThread pool)
+        * https://github.com/awslabs/amazon-kinesis-client/blob/v1.6.1/src/main/java/com/amazonaws/services/kinesis/clientlibrary/lib/worker/Worker.java#L789
+        */
+        ExecutorService execService = multithread ? null : Executors.newSingleThreadExecutor();
         return new Worker.Builder()
             .recordProcessorFactory(v2Factory)
             .config(config)
+            .execService(execService)
             .build();
     }
 

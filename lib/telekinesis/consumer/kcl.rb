@@ -54,7 +54,7 @@ module Telekinesis
       #
       # To write a simple stream tailer, you might use Block as follows:
       #
-      #     kcl_worker = Telekinesis::Consumer::KCL.new(config) do
+      #     kcl_worker = Telekinesis::Consumer::KCL.new(config, true) do
       #       Telekinesis::Consumer::BlockProcessor.new do |records, checkpointer, millis_behind_latest|
       #         records.each{|r| puts r}
       #         $stderr.puts "#{millis_behind_latest} ms behind"
@@ -64,10 +64,12 @@ module Telekinesis
       #
       #     kcl_worker.run
       #
-      def initialize(config, &block)
+      # In case you would like to turn multi-threading off, you can set second param after config to be false
+      # Default is true if it isn't passed.
+      def initialize(config, multithread = true, &block)
         raise ArgumentError, "No block given!" unless block_given?
         kcl_config = self.class.build_config(config)
-        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, &block)
+        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, multithread, &block)
       end
 
       # Return the underlying KCL worker. It's a java.lang.Runnable.
