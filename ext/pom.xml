@@ -4,7 +4,7 @@
 
     <groupId>com.kickstarter</groupId>
     <artifactId>telekinesis</artifactId>
-    <version>3.0.0</version>
+    <version>3.1.0</version>
 
     <!-- ================================================================== -->
     <build>
