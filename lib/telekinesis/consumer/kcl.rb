@@ -67,7 +67,7 @@ module Telekinesis
       def initialize(config, &block)
         raise ArgumentError, "No block given!" unless block_given?
         kcl_config = self.class.build_config(config)
-        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, &block)
+        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, config[:executor], &block)
       end
 
       # Return the underlying KCL worker. It's a java.lang.Runnable.
@@ -97,6 +97,7 @@ module Telekinesis
           raise ArgumentError, "#{k} is required" unless config.include?(k)
           config[k]
         end
+
         # Use this host as the worker_id by default.
         worker_id = config.fetch(:worker_id, `hostname`.chomp)
 

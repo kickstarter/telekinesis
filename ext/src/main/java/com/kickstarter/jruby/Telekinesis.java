@@ -16,6 +16,8 @@ import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
 import com.amazonaws.services.kinesis.model.Record;
 
+import java.util.concurrent.ExecutorService;
+
 /**
  * A shim that makes it possible to use the Kinesis Client Library from JRuby.
  * Without the shim, {@code initialize} method in
@@ -24,16 +26,16 @@ import com.amazonaws.services.kinesis.model.Record;
  * interface renames {@code initialize} to {@code init}.
  * <p />
  *
- * For convenience a {@link #newWorker(KinesisClientLibConfiguration, IRecordProcessorFactory)}
+ * For convenience a {@link #newWorker(KinesisClientLibConfiguration, ExecutorService, IRecordProcessorFactory)}
  * method is provided, so you can use closure conversion in JRuby to specify an
  * {@link IRecordProcessorFactory}. For example
  *
  * <p />
  *
  * <pre>
- *     some_thing = ...
+ *     executor = config[:executor] || nil
  *
- *     com.kickstarter.jruby.Telekinesis.new_worker(my_config) do
+ *     com.kickstarter.jruby.Telekinesis.new_worker(my_config, executor) do
  *       MyRecordProcessor.new(some_thing, some_other_thing)
  *     end
  * </pre>
@@ -41,19 +43,23 @@ import com.amazonaws.services.kinesis.model.Record;
 public class Telekinesis {
     /**
      * Create a new KCL {@link Worker} that processes records using the given
-     * {@link IRecordProcessorFactory}.
+     * {@link ExecutorService} and {@link IRecordProcessorFactory}.
      */
-    public static Worker newWorker(final KinesisClientLibConfiguration config, final IRecordProcessorFactory factory) {
+    public static Worker newWorker(final KinesisClientLibConfiguration config,
+                                   final ExecutorService executor,
+                                   final IRecordProcessorFactory factory) {
         com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory v2Factory = new com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory() {
             @Override
             public com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor createProcessor() {
                 return new RecordProcessorShim(factory.createProcessor());
             }
         };
+
         return new Worker.Builder()
-            .recordProcessorFactory(v2Factory)
-            .config(config)
-            .build();
+                .recordProcessorFactory(v2Factory)
+                .config(config)
+                .execService(executor) // NOTE: .execService(null) is a no-op
+                .build();
     }
 
     // ========================================================================
