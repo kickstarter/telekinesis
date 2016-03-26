@@ -1,0 +1,49 @@
+---
+version: 0.15.0
+merged:
+- gem:telekinesis:Jarfile.lock
+groups:
+  default:
+    dependencies:
+    - com.amazonaws:amazon-kinesis-client:jar:1.6.1
+    - com.amazonaws:aws-java-sdk-cloudwatch:jar:1.10.20
+    - com.amazonaws:aws-java-sdk-core:jar:1.10.20
+    - com.amazonaws:aws-java-sdk-dynamodb:jar:1.10.20
+    - com.amazonaws:aws-java-sdk-kinesis:jar:1.10.20
+    - com.amazonaws:aws-java-sdk-kms:jar:1.10.20
+    - com.amazonaws:aws-java-sdk-s3:jar:1.10.20
+    - com.fasterxml.jackson.core:jackson-annotations:jar:2.5.0
+    - com.fasterxml.jackson.core:jackson-core:jar:2.5.3
+    - com.fasterxml.jackson.core:jackson-databind:jar:2.5.3
+    - com.google.guava:guava:jar:18.0
+    - com.google.protobuf:protobuf-java:jar:2.6.1
+    - com.kickstarter:telekinesis:jar:3.1.0
+    - commons-codec:commons-codec:jar:1.6
+    - commons-lang:commons-lang:jar:2.6
+    - commons-logging:commons-logging:jar:1.1.3
+    - joda-time:joda-time:jar:2.8.1
+    - org.apache.httpcomponents:httpclient:jar:4.3.6
+    - org.apache.httpcomponents:httpcore:jar:4.3.3
+    artifacts:
+    - jar:com.kickstarter:telekinesis:jar:3.1.0:
+        transitive:
+          com.google.guava:guava:jar:18.0: {}
+          com.amazonaws:amazon-kinesis-client:jar:1.6.1:
+            com.amazonaws:aws-java-sdk-dynamodb:jar:1.10.20:
+              com.amazonaws:aws-java-sdk-s3:jar:1.10.20:
+                com.amazonaws:aws-java-sdk-kms:jar:1.10.20: {}
+            com.google.protobuf:protobuf-java:jar:2.6.1: {}
+            com.amazonaws:aws-java-sdk-kinesis:jar:1.10.20: {}
+            com.amazonaws:aws-java-sdk-cloudwatch:jar:1.10.20: {}
+            commons-lang:commons-lang:jar:2.6: {}
+            com.amazonaws:aws-java-sdk-core:jar:1.10.20:
+              org.apache.httpcomponents:httpclient:jar:4.3.6:
+                commons-codec:commons-codec:jar:1.6: {}
+                org.apache.httpcomponents:httpcore:jar:4.3.3: {}
+              commons-logging:commons-logging:jar:1.1.3: {}
+              com.fasterxml.jackson.core:jackson-databind:jar:2.5.3:
+                com.fasterxml.jackson.core:jackson-core:jar:2.5.3: {}
+                com.fasterxml.jackson.core:jackson-annotations:jar:2.5.0: {}
+              joda-time:joda-time:jar:2.8.1: {}
+remote_repositories:
+- http://repo1.maven.org/maven2/

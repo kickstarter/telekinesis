@@ -78,7 +78,7 @@ namespace :ext do
     log_ok("Building #{fat_jar}") do
       Dir.chdir("ext") do
         `mkdir -p target/`
-        `mvn package 2>&1 > target/build_log`
+        `mvn package shade:shade 2>&1 > target/build_log`
         raise "build failed. See ext/target/build_log for details" unless $?.success?
         FileUtils.copy("target/#{fat_jar}", "../lib/telekinesis/#{fat_jar}")
       end
@@ -88,24 +88,16 @@ end
 
 namespace :gem do
   desc "Build this gem"
-  task :build => 'ext:build' do
+  task :build do
     `gem build telekinesis.gemspec`
   end
 end
 
 require 'rake/testtask'
 
-# NOTE: Tests shouldn't be run without the extension being built, but converting
-#       the build task to a file task made it hard to depend on having a JDK
-#       and Maven installed. This is a little kludgy but better than the
-#       alternative.
-task :check_for_ext do
-  fat_jar = artifact_name('ext/pom.xml')
-  Rake::Task["ext:build"].invoke unless File.exists?("lib/telekinesis/#{fat_jar}")
-end
 
 Rake::TestTask.new(:test) do |t|
   t.test_files = FileList["test/**/test_*.rb"].exclude(/test_helper/)
   t.verbose = true
 end
-task :test => :check_for_ext
+task :test
