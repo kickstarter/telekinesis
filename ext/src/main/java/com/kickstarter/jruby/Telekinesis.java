@@ -24,13 +24,13 @@ import java.util.concurrent.ExecutorService;
  * {@link com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor}
  * conflicts with the special {@code initialize} method in Ruby. The shim
  * interface renames {@code initialize} to {@code init}.
- * <p />
+ * <p>
  *
  * For convenience a {@link #newWorker(KinesisClientLibConfiguration, ExecutorService, IRecordProcessorFactory)}
  * method is provided, so you can use closure conversion in JRuby to specify an
  * {@link IRecordProcessorFactory}. For example
  *
- * <p />
+ * <p>
  *
  * <pre>
  *     executor = config[:executor] || nil
