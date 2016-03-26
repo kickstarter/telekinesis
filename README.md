@@ -17,6 +17,7 @@
   - [Prerequisites](#prerequisites)
   - [Build](#build)
 - [Testing](#testing)
+- [License](#license)
 
 # Telekinesis
 
@@ -406,3 +407,11 @@ Telekinesis comes with a small set of unit tests. Run those with plain ol'
 > unit tests.
 
 Integration tests coming soon.
+
+
+# License
+
+Copyright Kickstarter, PBC.
+
+Released under an [MIT License](http://opensource.org/licenses/MIT).
+
