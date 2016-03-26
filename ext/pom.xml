@@ -2,9 +2,34 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <name>Telekinesis</name>
+    <description>Telekinesis is a high-level client for Amazon Kinesis.</description>
+    <url>https://github.com/kickstarter/telekinesis</url>
     <groupId>com.kickstarter</groupId>
     <artifactId>telekinesis</artifactId>
     <version>3.1.0</version>
+
+    <licenses>
+       <license>
+           <name>TBD</name>
+           <url>TBD</url>
+           <distribution>repo</distribution>
+       </license>
+   </licenses>
+
+   <scm>
+       <url>scm:git:https://github.com/kickstarter/telekinesis.git</url>
+       <developerConnection>scm:git:https://github.com/kickstarter/telekinesis.git</developerConnection>
+       <connection>scm:git:https://github.com/kickstarter/telekinesis.git</connection>
+   </scm>
+
+   <developers>
+        <developer>
+            <id>it</id>
+            <name>is silly</name>
+            <email>that@maven.demands.this</email>
+        </developer>
+    </developers>
 
     <distributionManagement>
        <repository>
