@@ -2,9 +2,42 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <name>Telekinesis</name>
+    <description>Telekinesis is a high-level client for Amazon Kinesis.</description>
+    <url>https://github.com/kickstarter/telekinesis</url>
     <groupId>com.kickstarter</groupId>
     <artifactId>telekinesis</artifactId>
     <version>3.1.0</version>
+
+    <licenses>
+       <license>
+           <name>TBD</name>
+           <url>TBD</url>
+           <distribution>repo</distribution>
+       </license>
+   </licenses>
+
+   <scm>
+       <url>scm:git:https://github.com/kickstarter/telekinesis.git</url>
+       <developerConnection>scm:git:https://github.com/kickstarter/telekinesis.git</developerConnection>
+       <connection>scm:git:https://github.com/kickstarter/telekinesis.git</connection>
+   </scm>
+
+   <developers>
+        <developer>
+            <id>it</id>
+            <name>is silly</name>
+            <email>that@maven.demands.this</email>
+        </developer>
+    </developers>
+
+    <distributionManagement>
+       <repository>
+           <id>nexus-releases</id>
+           <name>Nexus Release Repository</name>
+           <url>http://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+       </repository>
+   </distributionManagement>
 
     <!-- ================================================================== -->
     <build>
@@ -27,14 +60,6 @@
                 <configuration>
                     <createDependencyReducedPom>true</createDependencyReducedPom>
                 </configuration>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
@@ -60,4 +85,57 @@
         <aws-java-sdk-version>1.6.9.1</aws-java-sdk-version>
         <amazon-kinesis-client-version>1.6.1</amazon-kinesis-client-version>
     </properties>
+
+    <profiles>
+        <profile>
+            <id>release-sign-artifacts</id>
+            <activation>
+                <property>
+                    <name>performRelease</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-source-plugin</artifactId>
+                      <executions>
+                          <execution>
+                              <id>attach-sources</id>
+                              <goals>
+                                  <goal>jar</goal>
+                              </goals>
+                          </execution>
+                      </executions>
+                    </plugin>
+                    <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-javadoc-plugin</artifactId>
+                      <executions>
+                          <execution>
+                              <id>attach-javadocs</id>
+                              <goals>
+                                  <goal>jar</goal>
+                              </goals>
+                          </execution>
+                      </executions>
+                  </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
