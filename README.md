@@ -66,7 +66,7 @@ require 'telekinesis'
 producer = Telekinesis::Producer::SyncProducer.create(
   stream: 'my stream',
   credentials: {
-    acess_key_id: 'foo',
+    access_key_id: 'foo',
     secret_access_key: 'bar'
   }
 )
@@ -160,7 +160,7 @@ producer = Telekinesis::Producer::AsyncProducer.create(
   failure_handler: MyFailureHandler.new,
   send_every_ms: 1500,
   credentials: {
-    acess_key_id: 'foo',
+    access_key_id: 'foo',
     secret_access_key: 'bar'
   }
 )
