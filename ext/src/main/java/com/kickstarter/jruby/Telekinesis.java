@@ -1,5 +1,6 @@
 package com.kickstarter.jruby;
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker;
 import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
@@ -33,10 +34,12 @@ import java.util.concurrent.ExecutorService;
 public class Telekinesis {
     /**
      * Create a new KCL {@link Worker} that processes records using the given
-     * {@link ExecutorService} and {@link IRecordProcessorFactory}.
+     * {@link ExecutorService} and {@link IRecordProcessorFactory}. Uses the
+     * given {@link AmazonDynamoDBClient} if non-null.
      */
     public static Worker newWorker(final KinesisClientLibConfiguration config,
                                    final ExecutorService executor,
+                                   final AmazonDynamoDBClient dynamoClient,
                                    final IRecordProcessorFactory factory) {
         com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory v2Factory = new com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory() {
             @Override
@@ -45,11 +48,16 @@ public class Telekinesis {
             }
         };
 
-        return new Worker.Builder()
+        Worker.Builder builder = new Worker.Builder()
                 .recordProcessorFactory(v2Factory)
                 .config(config)
-                .execService(executor) // NOTE: .execService(null) is a no-op
-                .build();
+                .execService(executor); // NOTE: .execService(null) is a no-op
+
+        if (dynamoClient != null) {
+            builder.dynamoDBClient(dynamoClient);
+        }
+
+        return builder.build();
     }
 
     // ========================================================================
