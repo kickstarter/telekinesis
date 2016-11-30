@@ -69,4 +69,17 @@ class JavaClientAdapterTest < Minitest::Test
       end
     end
   end
+
+  context "JavaClientAdapter.build_credentials_provider" do
+    should "return a provider that provides the specified credentials" do
+      credentials = {
+        access_key_id: '0000000000',
+        secret_access_key: '0000000000',
+      }
+      provider = Telekinesis::Aws::JavaClientAdapter.build_credentials_provider(credentials)
+
+      assert_equal(credentials[:access_key_id], provider.credentials.aws_access_key_id)
+      assert_equal(credentials[:secret_access_key], provider.credentials.aws_secret_key)
+    end
+  end
 end
