@@ -68,7 +68,7 @@ module Telekinesis
       #
       #     kcl_worker.run
       #
-      def initialize(config, dynamo_client = null, &block)
+      def initialize(config, dynamo_client = nil, &block)
         raise ArgumentError, "No block given!" unless block_given?
         kcl_config = self.class.build_config(config)
         @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, config[:executor], dynamo_client, &block)
