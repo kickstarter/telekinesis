@@ -1,5 +1,6 @@
 package com.kickstarter.jruby;
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker;
 import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
@@ -33,10 +34,12 @@ import java.util.concurrent.ExecutorService;
 public class Telekinesis {
     /**
      * Create a new KCL {@link Worker} that processes records using the given
-     * {@link ExecutorService} and {@link IRecordProcessorFactory}.
+     * {@link ExecutorService}, {@link IRecordProcessorFactory}, and
+     * {@link AmazonDynamoDB}.
      */
     public static Worker newWorker(final KinesisClientLibConfiguration config,
                                    final ExecutorService executor,
+                                   final AmazonDynamoDB dynamoClient,
                                    final IRecordProcessorFactory factory) {
         com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory v2Factory = new com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory() {
             @Override
@@ -49,6 +52,7 @@ public class Telekinesis {
                 .recordProcessorFactory(v2Factory)
                 .config(config)
                 .execService(executor) // NOTE: .execService(null) is a no-op
+                .dynamoDBClient(dynamoClient)
                 .build();
     }
 

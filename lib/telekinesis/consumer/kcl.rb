@@ -23,6 +23,10 @@ module Telekinesis
       # client in the same `:app` on the same host, make sure you set this to
       # something unique!).
       #
+      # Clients interested in configuring their own AmazonDynamoDB client may
+      # pass an instance as the second argument. If not configured, the client
+      # will use a default AWS configuration.
+      #
       # Any other valid KCL Worker `:options` may be passed as a nested hash.
       #
       # For example, to configure a `tail` app on `some-stream` and use the
@@ -64,10 +68,10 @@ module Telekinesis
       #
       #     kcl_worker.run
       #
-      def initialize(config, &block)
+      def initialize(config, dynamo_client = nil, &block)
         raise ArgumentError, "No block given!" unless block_given?
         kcl_config = self.class.build_config(config)
-        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, config[:executor], &block)
+        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, config[:executor], dynamo_client, &block)
       end
 
       # Return the underlying KCL worker. It's a java.lang.Runnable.
