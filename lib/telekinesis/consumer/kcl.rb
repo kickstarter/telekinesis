@@ -23,11 +23,9 @@ module Telekinesis
       # client in the same `:app` on the same host, make sure you set this to
       # something unique!).
       #
-      # Note: to configure the KCL clients to talk to a local DynamoDB server,
-      # pass in an instance of `AmazonDynamoDBClient` configured to talk to a
-      # local server as the second (optional) parameter to the KCL initialize
-      # method. If not provided, the KCL client will talk to AWS DynamoDB
-      # directly.
+      # Clients interested in configuring their own AmazonDynamoDB client may
+      # pass an instance as the second argument. If not configured, the client
+      # will use a default AWS configuration.
       #
       # Any other valid KCL Worker `:options` may be passed as a nested hash.
       #
