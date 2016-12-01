@@ -34,8 +34,8 @@ import java.util.concurrent.ExecutorService;
 public class Telekinesis {
     /**
      * Create a new KCL {@link Worker} that processes records using the given
-     * {@link ExecutorService} and {@link IRecordProcessorFactory}. Uses the
-     * given {@link AmazonDynamoDB} if non-null.
+     * {@link ExecutorService}, {@link IRecordProcessorFactory}, and
+     * {@link AmazonDynamoDB}.
      */
     public static Worker newWorker(final KinesisClientLibConfiguration config,
                                    final ExecutorService executor,
@@ -48,16 +48,12 @@ public class Telekinesis {
             }
         };
 
-        Worker.Builder builder = new Worker.Builder()
+        return new Worker.Builder()
                 .recordProcessorFactory(v2Factory)
                 .config(config)
-                .execService(executor); // NOTE: .execService(null) is a no-op
-
-        if (dynamoClient != null) {
-            builder.dynamoDBClient(dynamoClient);
-        }
-
-        return builder.build();
+                .execService(executor) // NOTE: .execService(null) is a no-op
+                .dynamoDBClient(dynamoClient)
+                .build();
     }
 
     // ========================================================================
