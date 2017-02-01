@@ -20,7 +20,7 @@ module Telekinesis
       def self.create(options = {})
         stream = options[:stream]
         client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
-        new(stream, client, failure_handler, options)
+        new(stream, client, options)
       end
 
       def initialize(stream, client, opts = {})

@@ -1,6 +1,5 @@
 require_relative "test_helper"
 
-
 class SyncProducerTest < Minitest::Test
   StubPutRecordResponse = Struct.new(:shard_id, :sequence_number, :error_code, :error_message)
 
@@ -24,16 +23,20 @@ class SyncProducerTest < Minitest::Test
   end
 
   class TestingProducer < Telekinesis::Producer::SyncProducer
-    def failures
-      @failures ||= []
-    end
-
-    def on_record_failure(fs)
-      failures << fs
-    end
   end
 
   context "SyncProducer" do
+
+    context ".create" do
+      setup do
+        @sync_producer = Telekinesis::Producer::SyncProducer.create(stream: 'stream')
+      end
+
+      should "return a SyncProducer" do
+        assert_equal(@sync_producer.class, ::Telekinesis::Producer::SyncProducer)
+      end
+    end
+
     context "#put" do
       setup do
         @expected_response = StubPutRecordResponse.new(123, 123)
@@ -42,7 +45,6 @@ class SyncProducerTest < Minitest::Test
       end
 
       should "call the underlying client's put_record" do
-        assert(@producer.failures.empty?)
         assert_equal(@expected_response, @producer.put('key', 'value'))
         assert_equal(['stream', ['key', 'value']], @client.requests.first)
       end
