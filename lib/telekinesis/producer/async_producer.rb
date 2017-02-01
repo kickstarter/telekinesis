@@ -24,6 +24,9 @@ module Telekinesis
       # If unspecified, credentials will be fetched from the environment, an
       # ~/.aws/credentials file, or the current instance metadata.
       #
+      # An alternative Kinesis endpoint may be specified by using the `:endpoint`
+      # option and passing the URI into the Client builder.
+      #
       # The producer's `:worker_count`, internal `:queue_size`, the `:send_size`
       # of batches to Kinesis and how often workers send data to Kinesis, even
       # if their batches aren't full (`:send_every_ms`) can be configured as
@@ -34,7 +37,10 @@ module Telekinesis
       # is used.
       def self.create(options = {})
         stream = options[:stream]
-        client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
+        client = Telekinesis::Aws::Client.build(
+          options.fetch(:credentials, {}),
+          options[:endpoint]
+        )
         failure_handler = options.fetch(:failure_handler, NoopFailureHandler.new)
         new(stream, client, failure_handler, options)
       end

@@ -19,8 +19,10 @@ module Telekinesis
       # `:access_key_id` and `:secret_access_key`. If this hash is left blank
       # (the default) the client uses the DefaultAWSCredentialsProviderChain to
       # look for credentials.
-      def self.build(credentials = {})
+      # `:endpoint` is an optionally provided Kinesis URI
+      def self.build(credentials = {}, endpoint = nil)
         client = AmazonKinesisClient.new(build_credentials_provider(credentials))
+        client.set_endpoint(endpoint) if endpoint
         new(client)
       end
 
