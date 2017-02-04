@@ -6,6 +6,7 @@ module Telekinesis
 
       def initialize(cause)
         @cause = cause
+        super(cause.message)
       end
     end
 
