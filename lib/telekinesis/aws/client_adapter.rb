@@ -19,7 +19,7 @@ module Telekinesis
       #
       # Credentials must be supplied as a hash that contains symbolized
       # :access_key_id and :secret_access_key keys.
-      def self.build(credentials)
+      def self.build(credentials, endpoint = nil)
         raise NotImplementedError
       end
 
