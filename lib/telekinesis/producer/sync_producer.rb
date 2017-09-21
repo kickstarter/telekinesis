@@ -19,7 +19,10 @@ module Telekinesis
       # in `put_all`. See `put_all` for more info.
       def self.create(options = {})
         stream = options[:stream]
-        client = Telekinesis::Aws::Client.build(options.fetch(:credentials, {}))
+        client = Telekinesis::Aws::Client.build(
+          options.fetch(:credentials, {}),
+          options[:endpoint]
+        )
         new(stream, client, options)
       end
 
