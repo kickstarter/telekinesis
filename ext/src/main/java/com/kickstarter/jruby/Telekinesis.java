@@ -1,13 +1,6 @@
 package com.kickstarter.jruby;
 
-<<<<<<< HEAD
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
-import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
-=======
->>>>>>> kickstarter
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker;
