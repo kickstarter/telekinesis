@@ -4,7 +4,7 @@
 
     <groupId>com.kickstarter</groupId>
     <artifactId>telekinesis</artifactId>
-    <version>3.0.0</version>
+    <version>3.2.1</version>
 
     <!-- ================================================================== -->
     <build>
@@ -47,11 +47,6 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>amazon-kinesis-client</artifactId>
             <version>${amazon-kinesis-client-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>18.0</version>
         </dependency>
     </dependencies>
 

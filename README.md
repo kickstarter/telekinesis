@@ -1,4 +1,8 @@
-**Table of Contents**
+## Looking for Maintainers
+
+We're not actively maintaining this project. If you're interested in maintaining it, please post a comment on [this issue](https://github.com/kickstarter/telekinesis/issues/22).
+
+## Table of Contents
 
 - [Telekinesis](#telekinesis)
   - [Requirements](#requirements)
@@ -17,6 +21,7 @@
   - [Prerequisites](#prerequisites)
   - [Build](#build)
 - [Testing](#testing)
+- [License](#license)
 
 # Telekinesis
 
@@ -65,7 +70,7 @@ require 'telekinesis'
 producer = Telekinesis::Producer::SyncProducer.create(
   stream: 'my stream',
   credentials: {
-    acess_key_id: 'foo',
+    access_key_id: 'foo',
     secret_access_key: 'bar'
   }
 )
@@ -159,7 +164,7 @@ producer = Telekinesis::Producer::AsyncProducer.create(
   failure_handler: MyFailureHandler.new,
   send_every_ms: 1500,
   credentials: {
-    acess_key_id: 'foo',
+    access_key_id: 'foo',
     secret_access_key: 'bar'
   }
 )
@@ -406,3 +411,11 @@ Telekinesis comes with a small set of unit tests. Run those with plain ol'
 > unit tests.
 
 Integration tests coming soon.
+
+
+# License
+
+Copyright Kickstarter, PBC.
+
+Released under an [MIT License](http://opensource.org/licenses/MIT).
+

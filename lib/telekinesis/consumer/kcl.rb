@@ -23,6 +23,10 @@ module Telekinesis
       # client in the same `:app` on the same host, make sure you set this to
       # something unique!).
       #
+      # Clients interested in configuring their own AmazonDynamoDB client may
+      # pass an instance as the second argument. If not configured, the client
+      # will use a default AWS configuration.
+      #
       # Any other valid KCL Worker `:options` may be passed as a nested hash.
       #
       # For example, to configure a `tail` app on `some-stream` and use the
@@ -64,12 +68,21 @@ module Telekinesis
       #
       #     kcl_worker.run
       #
-      # In case you would like to turn multi-threading off, you can set second param after config to be false
-      # Default is true if it isn't passed.
-      def initialize(config, multithread = true, &block)
+      # To control the Threads in which the processor is executed use the :executor field in the config
+      # For instance the following config would result in a single thread processing all shards.
+      # The defualt is to use the Workers own thread pool which it will be responsible for shutting down
+      #  config = {
+      #       executor: Executors.newSingleThreadExecutor()
+      #       app: 'tail',
+      #       stream: 'some-stream',
+      #       options: {initial_position_in_stream: 'TRIM_HORIZON'}
+      #     }
+      #
+      #
+      def initialize(config, dynamo_client = nil, &block)
         raise ArgumentError, "No block given!" unless block_given?
         kcl_config = self.class.build_config(config)
-        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, multithread, &block)
+        @under = com.kickstarter.jruby.Telekinesis.new_worker(kcl_config, config[:executor], dynamo_client, &block)
       end
 
       # Return the underlying KCL worker. It's a java.lang.Runnable.
@@ -99,6 +112,7 @@ module Telekinesis
           raise ArgumentError, "#{k} is required" unless config.include?(k)
           config[k]
         end
+
         # Use this host as the worker_id by default.
         worker_id = config.fetch(:worker_id, `hostname`.chomp)
 

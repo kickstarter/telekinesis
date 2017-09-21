@@ -2,7 +2,9 @@ module Telekinesis
   module Aws
     java_import java.nio.ByteBuffer
     java_import com.amazonaws.AmazonClientException
+    java_import com.amazonaws.auth.BasicAWSCredentials
     java_import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+    java_import com.amazonaws.internal.StaticCredentialsProvider
     java_import com.amazonaws.services.kinesis.AmazonKinesisClient
     java_import com.amazonaws.services.kinesis.model.PutRecordRequest
     java_import com.amazonaws.services.kinesis.model.PutRecordsRequest
