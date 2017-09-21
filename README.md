@@ -2,6 +2,8 @@
 
 We're not actively maintaining this project. If you're interested in maintaining it, please post a comment on [this issue](https://github.com/kickstarter/telekinesis/issues/22).
 
+Test
+
 ## Table of Contents
 
 - [Telekinesis](#telekinesis)
@@ -72,7 +74,8 @@ producer = Telekinesis::Producer::SyncProducer.create(
   credentials: {
     access_key_id: 'foo',
     secret_access_key: 'bar'
-  }
+  },
+  endpoint: "https://kinesis.eu-central-1.amazonaws.com"
 )
 ```
 
@@ -144,18 +147,17 @@ something bad happens.
 ```ruby
 require 'telekinesis'
 
-class MyFailureHandler
-  def on_record_failure(kv_pairs_and_errors)
-    items = kv_pairs_and_errors.map do |k, v, code, message|
-      maybe_log_error(code, message)
-      [k, v]
-    end
-    save_for_later(items)
+class KinesisFailureHandler
+  def on_record_failure(item_error_tuples)
+    puts "on_record_failure: #{item_error_tuples.inspect}"
   end
 
-  def on_kinesis_error(err, items)
-    log_exception(err.cause)
-    save_for_later(items)
+  def on_kinesis_retry(error, items)
+    puts "on_kinesis_retry: #{error.cause}, #{items.inspect}"
+  end
+
+  def on_kinesis_failure(error, items)
+    puts "on_kinesis_failure: #{error.cause}, #{items.inspect}"
   end
 end
 
@@ -166,7 +168,8 @@ producer = Telekinesis::Producer::AsyncProducer.create(
   credentials: {
     access_key_id: 'foo',
     secret_access_key: 'bar'
-  }
+  },
+  endpoint: "https://kinesis.eu-central-1.amazonaws.com"
 )
 ```
 
