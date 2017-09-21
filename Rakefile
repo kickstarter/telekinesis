@@ -109,3 +109,9 @@ Rake::TestTask.new(:test) do |t|
   t.verbose = true
 end
 task :test => :check_for_ext
+
+namespace :build do
+  task continuous: [:test, 'gem:build']
+end
+
+task default: 'build:continuous'

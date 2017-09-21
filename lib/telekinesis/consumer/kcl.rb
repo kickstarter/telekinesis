@@ -58,7 +58,7 @@ module Telekinesis
       #
       # To write a simple stream tailer, you might use Block as follows:
       #
-      #     kcl_worker = Telekinesis::Consumer::KCL.new(config) do
+      #     kcl_worker = Telekinesis::Consumer::KCL.new(config, true) do
       #       Telekinesis::Consumer::BlockProcessor.new do |records, checkpointer, millis_behind_latest|
       #         records.each{|r| puts r}
       #         $stderr.puts "#{millis_behind_latest} ms behind"
@@ -67,6 +67,17 @@ module Telekinesis
       #     end
       #
       #     kcl_worker.run
+      #
+      # To control the Threads in which the processor is executed use the :executor field in the config
+      # For instance the following config would result in a single thread processing all shards.
+      # The defualt is to use the Workers own thread pool which it will be responsible for shutting down
+      #  config = {
+      #       executor: Executors.newSingleThreadExecutor()
+      #       app: 'tail',
+      #       stream: 'some-stream',
+      #       options: {initial_position_in_stream: 'TRIM_HORIZON'}
+      #     }
+      #
       #
       def initialize(config, dynamo_client = nil, &block)
         raise ArgumentError, "No block given!" unless block_given?
