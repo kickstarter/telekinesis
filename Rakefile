@@ -96,7 +96,6 @@ require 'rake/testtask'
 #       and Maven installed. This is a little kludgy but better than the
 #       alternative.
 task :check_for_ext do
-  fat_jar = artifact_name('ext/pom.xml')
   Rake::Task["ext:build"].invoke if Dir.glob('lib/telekinesis/telekinesis*.jar').empty?
 end
 
