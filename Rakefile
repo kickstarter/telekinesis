@@ -16,15 +16,6 @@ error: #{e}
   end
 end
 
-def artifact_name(path)
-  File.open(path) do |f|
-    doc = Nokogiri::XML(f)
-    id = doc.css("project>artifactId").text
-    version = doc.css("project>version").text
-    "#{id}-#{version}.jar"
-  end
-end
-
 namespace :ext do
   require_relative 'lib/telekinesis/version'
 
@@ -46,6 +37,7 @@ namespace :ext do
   task :have_jdk6_or_higher? do
     log_ok("Checking that at least java 6 is installed") do
       version_match = `java -version 2>&1`.match(/java version "1\.(\d)\.(\d+_\d+)"/)
+      version_match ||= `java -version 2>&1`.match(/jdk version "1\.(\d)\.(\d+_\d+)"/)
       if version_match.nil?
         raise "Can't parse Java version!"
       end
@@ -73,14 +65,18 @@ namespace :ext do
   end
 
   desc "Build the Java extensions for this gem. Requires JDK6+ and Maven"
-  task :build => [:have_jdk6_or_higher?, :have_maven?, :update_pom_version, :clean] do
-    fat_jar = artifact_name('ext/pom.xml')
-    log_ok("Building #{fat_jar}") do
+  task :build => [:have_jdk6_or_higher?, :have_maven?, :clean] do
+    log_ok("Building jar") do
       Dir.chdir("ext") do
         `mkdir -p target/`
         `mvn package 2>&1 > target/build_log`
         raise "build failed. See ext/target/build_log for details" unless $?.success?
-        FileUtils.copy("target/#{fat_jar}", "../lib/telekinesis/#{fat_jar}")
+      end
+    end
+
+    Dir['target/*.jar'].each do |f|
+      log_ok("Copying #{f}") do
+        FileUtils.cp(f,"../lib/telekinesis/")
       end
     end
   end
@@ -101,7 +97,7 @@ require 'rake/testtask'
 #       alternative.
 task :check_for_ext do
   fat_jar = artifact_name('ext/pom.xml')
-  Rake::Task["ext:build"].invoke unless File.exists?("lib/telekinesis/#{fat_jar}")
+  Rake::Task["ext:build"].invoke if Dir.glob('lib/telekinesis/telekinesis*.jar').empty?
 end
 
 Rake::TestTask.new(:test) do |t|
