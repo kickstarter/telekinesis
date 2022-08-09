@@ -11,6 +11,11 @@ jobs:
           command: |
             sudo mkdir -p /app
             sudo chown circleci /app
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt-get update -y
+            sudo apt-get install -y maven
       - checkout
       - run:
           command: bundle install
