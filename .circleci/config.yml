@@ -1,0 +1,25 @@
+version: 2.1
+
+jobs:
+  build_and_test:
+    docker:
+      - image: circleci/jruby:1.7
+    steps:
+      - setup_remote_docker
+      - run:
+          name: Setup checkout directory
+          command: |
+            sudo mkdir -p /app
+            sudo chown circleci /app
+      - checkout
+      - run:
+          command: bundle install
+      - run:
+          name: Run tests
+          command: rake test
+
+workflows:
+  version: 2
+  docker_builder:
+    jobs:
+      - build_and_test
