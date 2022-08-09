@@ -74,9 +74,9 @@ namespace :ext do
       end
     end
 
-    Dir['target/*.jar'].each do |f|
+    Dir['ext/target/*.jar'].each do |f|
       log_ok("Copying #{f}") do
-        FileUtils.cp(f,"../lib/telekinesis/")
+        FileUtils.cp(f,"lib/telekinesis/")
       end
     end
   end
