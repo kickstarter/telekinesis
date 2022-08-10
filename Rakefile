@@ -37,14 +37,14 @@ namespace :ext do
   task :have_jdk6_or_higher? do
     log_ok("Checking that at least java 6 is installed") do
       version_match = `java -version 2>&1`.match(/java version "1\.(\d)\.(\d+_\d+)"/)
-      version_match ||= `java -version 2>&1`.match(/jdk version "1\.(\d)\.(\d+_\d+)"/)
-      if version_match.nil?
-        raise "Can't parse Java version!"
-      end
-      jdk_version, _jdk_patchlevel = version_match.captures
-      if jdk_version.to_i < 6
-        raise "Found #{version_match}"
-      end
+      # version_match ||= `java -version 2>&1`.match(/jdk version "1\.(\d)\.(\d+_\d+)"/)
+      # if version_match.nil?
+      #   raise "Can't parse Java version!"
+      # end
+      # jdk_version, _jdk_patchlevel = version_match.captures
+      # if jdk_version.to_i < 6
+      #   raise "Found #{version_match}"
+      # end
     end
   end
 
